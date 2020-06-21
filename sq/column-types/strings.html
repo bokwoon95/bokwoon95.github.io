@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/sq/favicon/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/sq/favicon/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/sq/favicon/favicon-16x16.png">
+  <link rel="manifest" href="/sq/favicon/site.webmanifest">
+  <link rel="stylesheet" href="/prismjs/atom-dark.css">
+  <link rel="stylesheet" href="/tachyons.css">
+  <link rel="stylesheet" href="/sakura.css">
+  <link rel="stylesheet" href="/sq/style.css">
+  <title>sq - Strings</title>
+</head>
+<body>
+  <div class="flex justify-between">
+    <div><a href="/sq/column-types/numbers.html">&lt; Prev: Numbers</a></div>
+    <div><a href="/sq#column-types">Up: Column Types</a></div>
+    <div><a href="/sq/column-types/time.html">Next: TIMESTAMPTZ/DATETIME &gt;</a></div>
+  </div>
+  <h1>Column Types: Strings</h1>
+  The sq representation of all textual types (VARCHAR, TEXT, etc) is the StringField. You can convert a string into a StringField:
+  <pre><code class="language-go">func String(s string) StringField</code></pre>
+  Here are the available <a href="/sq/basics/tables-fields-and-predicates.html#predicate">Predicate</a> operations on a StringField:
+  <pre class="wide-width-l"><code class="language-go">func (f StringField) IsNull() Predicate          // f IS NULL
+func (f StringField) IsNotNull() Predicate       // f IS NOT NULL
+func (f StringField) In(v interface{}) Predicate // f IN (v)
+
+// StringField
+func (f StringField) Eq(field StringField) Predicate // f = field
+func (f StringField) Ne(field StringField) Predicate // f &lt;&gt; field
+func (f StringField) Gt(field StringField) Predicate // f &gt; field
+func (f StringField) Ge(field StringField) Predicate // f &gt;= field
+func (f StringField) Lt(field StringField) Predicate // f &lt; field
+func (f StringField) Le(field StringField) Predicate // f &lt;= field
+
+// string
+func (f StringField) EqString(s string) Predicate       // f = s
+func (f StringField) NeString(s string) Predicate       // f &lt;&gt; s
+func (f StringField) GtString(s string) Predicate       // f &gt; s
+func (f StringField) GeString(s string) Predicate       // f &gt;= s
+func (f StringField) LtString(s string) Predicate       // f &lt; s
+func (f StringField) LeString(s string) Predicate       // f &lt;= s
+func (f StringField) LikeString(s string) Predicate     // f LIKE s
+func (f StringField) NotLikeString(s string) Predicate  // f NOT LIKE s
+func (f StringField) ILikeString(s string) Predicate    // f ILIKE s (postgres only)
+func (f StringField) NotILikeString(s string) Predicate // f NOT ILIKE s (postgres only)
+</code></pre>
+  <div class="flex justify-between">
+    <div><a href="/sq/column-types/numbers.html">&lt; Prev: Numbers</a></div>
+    <div><a href="/sq#column-types">Up: Column Types</a></div>
+    <div><a href="/sq/column-types/time.html">Next: TIMESTAMPTZ/DATETIME &gt;</a></div>
+  </div>
+  <script src="/prismjs/prism.js"></script>
+</body>
+</html>

@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/sq/favicon/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/sq/favicon/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/sq/favicon/favicon-16x16.png">
+  <link rel="manifest" href="/sq/favicon/site.webmanifest">
+  <link rel="stylesheet" href="/prismjs/atom-dark.css">
+  <link rel="stylesheet" href="/tachyons.css">
+  <link rel="stylesheet" href="/sakura.css">
+  <link rel="stylesheet" href="/sq/style.css">
+  <title>sq - Subqueries</title>
+</head>
+<body>
+  <div class="flex justify-between">
+    <div><a href="/sq/sql-expressions/window-functions.html">&lt; Prev: Window functions</a></div>
+    <div><a href="/sq#sql-expressions">Up: SQL Expressions</a></div>
+    <div><a href="/sq/sql-expressions/common-table-expressions.html">Next: WITH (Common Table Expressions) &gt;</a></div>
+  </div>
+  <h1>SQL Expressions: Subqueries</h1>
+  Subqueries are <a href="/sq/basics/tables-fields-and-predicates.html#query">queries</a> nested inside another query.
+  They are just another <a href="/sq/basics/tables-fields-and-predicates.html#table">Table</a> that you can SELECT from.
+  <pre><code class="language-go">sq.SelectOne().
+  From(sq. // &lt;-- subquery
+      Select(tbl.COLUMN_1).
+      From(tbl).
+      Where(tbl.COLUMN_2.Eq(tbl.COLUMN_3)).
+      Subquery("subquery")
+  )
+</code></pre>
+  <p></p>
+  If you want to reference a subquery's child columns, you must first assign it to a variable:
+  <pre><code class="language-go">subquery := sq.Select(tbl.COLUMN_1).
+    From(tbl).
+    Where(tbl.COLUMN_2.Eq(tbl.COLUMN_3).
+    Subquery("subquery")
+sq.Select(subquery["column_1"]).From(subquery)
+</code></pre>
+  Equivalent SQL:
+  <pre><code class="language-sql">SELECT subquery.column_1 FROM (
+    SELECT tbl.column_1
+    FROM tbl
+    WHERE tbl.column_2 = tbl.column_3
+) AS subquery;
+</code></pre>
+  <p></p>
+  If you reference a column that doesn't actually exist in the subquery, the column will show up as <code>:blank:</code> in the generated SQL:
+  <pre><code class="language-go">subquery := sq.Select(tbl.COLUMN_1).
+    From(tbl).
+    Where(tbl.COLUMN_2.Eq(tbl.COLUMN_3).
+    Subquery("subquery")
+sq.Select(subquery["column_xyz"]).From(subquery)
+</code></pre>
+  Equivalent SQL:
+  <pre><code class="language-sql">SELECT :blank: FROM (
+    SELECT tbl.column_1
+    FROM tbl
+    WHERE tbl.column_2 = tbl.column_3
+) AS subquery;
+</code></pre>
+  <div class="flex justify-between">
+    <div><a href="/sq/sql-expressions/window-functions.html">&lt; Prev: Window functions</a></div>
+    <div><a href="/sq#sql-expressions">Up: SQL Expressions</a></div>
+    <div><a href="/sq/sql-expressions/common-table-expressions.html">Next: WITH (Common Table Expressions) &gt;</a></div>
+  </div>
+  <script src="/prismjs/prism.js"></script>
+</body>
+</html>

@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/sq/favicon/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/sq/favicon/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/sq/favicon/favicon-16x16.png">
+  <link rel="manifest" href="/sq/favicon/site.webmanifest">
+  <link rel="stylesheet" href="/prismjs/atom-dark.css">
+  <link rel="stylesheet" href="/tachyons.css">
+  <link rel="stylesheet" href="/sakura.css">
+  <link rel="stylesheet" href="/sq/style.css">
+  <title>sq - Building off a common query builder</title>
+</head>
+<body>
+  <div class="flex justify-between">
+    <div><a href="/sq/query-building/delete.html">&lt; Prev: DELETE</a></div>
+    <div><a href="/sq#query-building">Up: Query Building</a></div>
+    <div><a href="/sq/query-building/reusing-where.html">Next: Reusing WHERE &gt;</a></div>
+  </div>
+  <h1>Query Building: Building off a common query builder</h1>
+  The query builders in the package are generally stateless: you must pass in the database connection and logger for every query you want to build. If you want to make all queries share the same database connection and logger, you can build off a common <code>BaseQuery</code> struct that is able to transform into a SelectQuery, InsertQuery, UpdateQuery or DeleteQuery depending on the method you call on it.
+  <pre><code class="language-go">// New BaseQuery
+base := sq.BaseQuery{
+    DB:      DB,
+    Log:     Logger,
+    LogFlag: logflag,
+}
+// Using chained methods to do the same thing
+base := WithDB(DB).WithLog(Logger, logflag)
+// Alternative using the default logger
+base := WithDB(DB).WithDefaultLogger(logflag)
+
+// The below queries will all share the same DB and Logger
+base.From()       // --&gt; SelectQuery
+base.Select()     // --&gt; SelectQuery
+base.InsertInto() // --&gt; InsertQuery
+base.Update()     // --&gt; UpdateQuery
+base.DeleteFrom() // --&gt; DeleteQuery
+</code></pre>
+  To make use of the common DB, when you call <code>Fetch()</code> or <code>Exec()</code> just pass nil in as the DB argument.
+  <pre><code class="language-go">base := WithDB(DB).WithLog(Logger, logflag)
+
+base.From(table).
+    SelectRowx(func(row *sq.Row) {
+        val1 = row.Int(table.VALUE_1)
+        val2 = row.String(table.VALUE_2)
+    }).
+    Fetch(nil) // &lt;-- no need to pass in a DB
+
+base.InsertInto(table).
+    Columns(table.VALUE_1, table.VALUE_2).
+    Values(val1, val2).
+    Values(val3, val4).
+    Exec(nil, 0) // &lt;-- no need to pass in a DB
+</code></pre>
+  However keep in mind if you do pass in a DB connection, it will take precedence over the common DB. This is useful if you generally want to use a common DB connection, but need to switch to a transaction-based connection on a case-by-case basis.
+  <pre><code class="language-go">base := WithDB(DB).WithLog(Logger, logflag)
+tx, _ := DB.Begin()
+defer tx.Close()
+
+base.From(table).
+  SelectRowx(func(row *sq.Row) {
+      val1 = row.Int(table.VALUE_1)
+      val2 = row.String(table.VALUE_2)
+  }).
+  Fetch(tx) // &lt;-- tx will override DB
+
+base.InsertInto(table).
+    Columns(table.VALUE_1, table.VALUE_2).
+    Values(val1, val2).
+    Values(val3, val4).
+    Exec(tx, 0) // &lt;-- tx will override DB
+</code></pre>
+  <div class="flex justify-between">
+    <div><a href="/sq/query-building/delete.html">&lt; Prev: DELETE</a></div>
+    <div><a href="/sq#query-building">Up: Query Building</a></div>
+    <div><a href="/sq/query-building/reusing-where.html">Next: Reusing WHERE &gt;</a></div>
+  </div>
+  <script src="/prismjs/prism.js"></script>
+</body>
+</html>

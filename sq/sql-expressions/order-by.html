@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/sq/favicon/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/sq/favicon/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/sq/favicon/favicon-16x16.png">
+  <link rel="manifest" href="/sq/favicon/site.webmanifest">
+  <link rel="stylesheet" href="/prismjs/atom-dark.css">
+  <link rel="stylesheet" href="/tachyons.css">
+  <link rel="stylesheet" href="/sakura.css">
+  <link rel="stylesheet" href="/sq/style.css">
+  <title>sq - ORDER BY</title>
+</head>
+<body>
+  <div class="flex justify-between">
+    <div><a href="/sq/sql-expressions/common-table-expressions.html">&lt; Prev: WITH (Common Table Expressions)</a></div>
+    <div><a href="/sq#sql-expressions">Up: SQL Expressions</a></div>
+    <div><a href="/sq/sql-expressions/in.html">Next: IN &gt;</a></div>
+  </div>
+  <h1>SQL Expressions: ORDER BY</h1>
+  Fields can have the <code>.Asc()/.Desc()</code> methods called on them to simulate ASC/DESC. For postgres, the <code>.NullsFirst()/.NullsLast()</code> option is also available.
+  <pre><code class="language-go">// ORDER BY tbl.column_1 ASC, tbl.column_2 DESC
+OrderBy(tbl.COLUMN_1.Asc(), tbl.COLUMN_2.Desc())
+
+// (postgres only)
+// ORDER BY tbl.column_1 DESC NULLS FIRST, tbl.column2 NULLS LAST
+OrderBy(tbl.COLUMN_1.Desc().NullsFirst(), tbl.COLUMN_2.NullsLast())
+</code></pre>
+  <div class="flex justify-between">
+    <div><a href="/sq/sql-expressions/common-table-expressions.html">&lt; Prev: WITH (Common Table Expressions)</a></div>
+    <div><a href="/sq#sql-expressions">Up: SQL Expressions</a></div>
+    <div><a href="/sq/sql-expressions/in.html">Next: IN &gt;</a></div>
+  </div>
+  <script src="/prismjs/prism.js"></script>
+</body>
+</html>

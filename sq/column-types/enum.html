@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/sq/favicon/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/sq/favicon/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/sq/favicon/favicon-16x16.png">
+  <link rel="manifest" href="/sq/favicon/site.webmanifest">
+  <link rel="stylesheet" href="/prismjs/atom-dark.css">
+  <link rel="stylesheet" href="/tachyons.css">
+  <link rel="stylesheet" href="/sakura.css">
+  <link rel="stylesheet" href="/sq/style.css">
+  <title>sq - ENUM</title>
+</head>
+<body>
+  <div class="flex justify-between">
+    <div><a href="/sq/column-types/json.html">&lt; Prev: JSON</a></div>
+    <div><a href="/sq#column-types">Up: Column Types</a></div>
+    <div><a href="/sq/column-types/bytes.html">Next: BYTEA, BLOB &gt;</a></div>
+  </div>
+  <h1>Column Types: ENUM</h1>
+  The sq representation of ENUM is the EnumField. EnumField is just a type aliases of StringField. Whatever you can do on a <a href="/sq/column-types/strings.html">StringField</a>, you can do on an EnumField.
+  <pre><code class="language-go">type EnumField = StringField</code></pre>
+  <h5>No first class support for enum generation?</h5>
+  I don't think ENUMs are worth the tradeoffs compared to a foreign key constraint. They were put in sq just so that ENUM columns would get a representation Field for code generation.
+  If you want first class ENUM support with const values generated, please submit an issue detailing how you use ENUMs in your codebase.
+  <div class="flex justify-between">
+    <div><a href="/sq/column-types/json.html">&lt; Prev: JSON</a></div>
+    <div><a href="/sq#column-types">Up: Column Types</a></div>
+    <div><a href="/sq/column-types/bytes.html">Next: BYTEA, BLOB &gt;</a></div>
+  </div>
+  <script src="/prismjs/prism.js"></script>
+</body>
+</html>

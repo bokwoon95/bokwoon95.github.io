@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/sq/favicon/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/sq/favicon/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/sq/favicon/favicon-16x16.png">
+  <link rel="manifest" href="/sq/favicon/site.webmanifest">
+  <link rel="stylesheet" href="/prismjs/atom-dark.css">
+  <link rel="stylesheet" href="/tachyons.css">
+  <link rel="stylesheet" href="/sakura.css">
+  <link rel="stylesheet" href="/sq/style.css">
+  <title>sq - BYTEA, BLOB</title>
+</head>
+<body>
+  <div class="flex justify-between">
+    <div><a href="/sq/column-types/enum.html">&lt; Prev: ENUM</a></div>
+    <div><a href="/sq#column-types">Up: Column Types</a></div>
+  </div>
+  <h1>Column Types: BYTEA, BLOB</h1>
+  The sq representation of BYTEA, BLOB is the BinaryField. You can convert a byte slice <code>[]byte</code> into a BinaryField:
+  <pre><code class="language-go">func Bytes(b []byte) BinaryField</code></pre>
+  Here are the available <a href="/sq/basics/tables-fields-and-predicates.html#predicate">Predicate</a> operations on a BinaryField:
+  <pre class="wide-width-l"><code class="language-go">func (f BinaryField) IsNull() Predicate    // f IS NULL
+func (f BinaryField) IsNotNull() Predicate // f IS NOT NULL
+</code></pre>
+  <div class="flex justify-between">
+    <div><a href="/sq/column-types/enum.html">&lt; Prev: ENUM</a></div>
+    <div><a href="/sq#column-types">Up: Column Types</a></div>
+  </div>
+  <script src="/prismjs/prism.js"></script>
+</body>
+</html>

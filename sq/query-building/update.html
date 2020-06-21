@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/sq/favicon/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/sq/favicon/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/sq/favicon/favicon-16x16.png">
+  <link rel="manifest" href="/sq/favicon/site.webmanifest">
+  <link rel="stylesheet" href="/prismjs/atom-dark.css">
+  <link rel="stylesheet" href="/tachyons.css">
+  <link rel="stylesheet" href="/sakura.css">
+  <link rel="stylesheet" href="/sq/style.css">
+  <title>sq - UPDATE</title>
+</head>
+<body>
+  <div class="flex justify-between">
+    <div><a href="/sq/query-building/insert.html">&lt; Prev: INSERT</a></div>
+    <div><a href="/sq#query-building">Up: Query Building</a></div>
+    <div><a href="/sq/query-building/delete.html">Next: DELETE &gt;</a></div>
+  </div>
+  <h1>Query Building: UPDATE</h1>
+  <h3>
+    <a id="contents" href="#contents" class="sakura-gray no-underline pilcrow">
+      Contents
+    </a>
+  </h3>
+  <ul>
+    <li><a href="#basic-example">Basic example</a></li>
+    <li><a href="#join">UPDATE with join</a></li>
+    <li><a href="#multi-table-update">Multi-table UPDATE</a>&nbsp;<span class="f4">(MySQL only)</span></li>
+    <li><a href="#clause-manipulation">Clause manipulation</a></li>
+  </ul>
+
+  <div>
+    <h3 class="dib">
+      <a id="basic-example" href="#basic-example" class="sakura-gray no-underline pilcrow">
+        Basic example
+      </a>
+    </h3>
+    &nbsp;&nbsp;<a href="#contents">contents</a>
+  </div>
+  SQL
+  <pre><code class="language-sql">UPDATE public.users
+SET name = 'bob', password = '1234'
+WHERE email = 'bob@email.com';
+</code></pre>
+  Go
+  <pre><code class="language-go">u := tables.USERS()
+
+// ...if you use ToSQL
+query, args := sq.Update(u).
+    Set(
+        u.NAME.Set("bob"),
+        u.PASSWORD.Set("1234"),
+    ).
+    Where(u.EMAIL.EqString("bob@email.com")).
+    ToSQL()
+_, err := DB.Exec(query, args...)
+if err != nil {
+    /* handle error */
+}
+
+// ...if you use Exec
+_, err := sq.Update(u).
+    Set(
+        u.NAME.Set("bob"),
+        u.PASSWORD.Set("1234"),
+    ).
+    Where(u.EMAIL.EqString("bob@email.com")).
+    Exec(DB, 0)
+if err != nil {
+    /* handle error */
+}
+</code></pre>
+
+  <div>
+    <h3 class="dib">
+      <a id="join" href="#join" class="sakura-gray no-underline pilcrow">
+        UPDATE with join
+      </a>
+    </h3>
+    &nbsp;&nbsp;<a href="#contents">contents</a>
+  </div>
+  SQL
+  <pre><code class="language-sql">--------------
+-- Postgres --
+--------------
+
+UPDATE public.users AS u
+SET name = 'bob', password = '1234'
+FROM public.user_roles AS ur
+JOIN public.user_roles_students AS urs ON urs.user_role_id = ur.user_role_id
+WHERE u.user_id = ur.user_id AND urs.team_id = 15;
+
+-----------
+-- MySQL --
+-----------
+
+UPDATE public.users AS u
+JOIN public.user_roles AS ur ON ur.user_id = u.user_id
+JOIN public.user_roles_students AS urs ON urs.user_role_id = ur.user_role_id
+SET u.name = 'bob', u.password = '1234'
+WHERE urs.team_id = 15;
+</code></pre>
+  Go
+  <pre><code class="language-go">u := tables.USERS().As("u")
+ur := tables.USER_ROLES().As("ur")
+urs := tables.USER_ROLES_STUDENTS().As("urs")
+
+//----------//
+// Postgres //
+//----------//
+
+// ...if you use ToSQL
+query, args := sq.Update(u).
+    Set(u.NAME.SetString("bob"), u.PASSWORD.SetString("1234")).
+    From(ur).
+    Join(urs, urs.USER_ROLE_ID.Eq(ur.USER_ROLE_ID)).
+    Where(u.USER_ID.Eq(ur.USER_ID), urs.TEAM_ID.EqInt(15)).
+    ToSQL()
+_, err := DB.Exec(query, args...)
+if err != nil {
+    /* handle error */
+}
+
+// ...if you use Exec
+_, err := sq.Update(u).
+    Set(u.NAME.SetString("bob"), u.PASSWORD.SetString("1234")).
+    From(ur).
+    Join(urs, urs.USER_ROLE_ID.Eq(ur.USER_ROLE_ID)).
+    Where(u.USER_ID.Eq(ur.USER_ID), urs.TEAM_ID.EqInt(15)).
+    Exec(DB, 0)
+if err != nil {
+    /* handle error */
+}
+
+//-------//
+// MySQL //
+//-------//
+
+// ...if you use ToSQL
+query, args := sq.Update(u).
+    Join(ur, ur.USER_ID.Eq(u.USER_ID)).
+    Join(urs, urs.USER_ROLE_ID.Eq(ur.USER_ROLE_ID)).
+    Set(u.NAME.SetString("bob"), u.PASSWORD.SetString("1234")).
+    Where(urs.TEAM_ID.EqInt(15)).
+    ToSQL()
+_, err := DB.Exec(query, args...)
+if err != nil {
+    /* handle error */
+}
+
+// ...if you use Exec
+_, err := sq.Update(u).
+    Join(ur, ur.USER_ID.Eq(u.USER_ID)).
+    Join(urs, urs.USER_ROLE_ID.Eq(ur.USER_ROLE_ID)).
+    Set(u.NAME.SetString("bob"), u.PASSWORD.SetString("1234")).
+    Where(urs.TEAM_ID.EqInt(15)).
+    Exec(DB, 0)
+if err != nil {
+    /* handle error */
+}
+</code></pre>
+
+  <div>
+    <h3 class="dib">
+      <a id="multi-table-update" href="#multi-table-update" class="sakura-gray no-underline pilcrow">
+        Multi-table UPDATE
+      </a>
+    </h3>
+    &nbsp;&nbsp;<a href="#contents">contents</a>
+  </div>
+  <p>
+    Note: Multi-table UPDATE is a mysql-only feature. 
+  </p>
+  <p>
+    It is a natural extension of an <a href="#join">UPDATE with join</a>, simply set values for the additional tables that you have already joined. (Postgres allows for joining other tables in UPDATE, but does not allow you to set values for them.)
+  </p>
+  <p>
+    You will not be able to use the ORDER BY and LIMIT clauses in a multi-table UPDATE.
+  </p>
+  SQL
+  <pre><code class="language-sql">UPDATE public.users AS u
+JOIN public.user_roles AS ur ON ur.user_id = u.user_id
+JOIN public.user_roles_students AS urs ON urs.user_role_id = ur.user_role_id
+SET u.name = 'bob', ur.role = 'student', urs.team_id = 3
+WHERE urs.team_id = 15;
+</code></pre>
+  Go
+  <pre><code class="language-go">u := tables.USERS()
+
+// ...if you use ToSQL
+query, args := sq.Update(u).
+    Join(ur, ur.USER_ID.Eq(u.USER_ID)).
+    Join(urs, urs.USER_ROLE_ID.Eq(ur.USER_ROLE_ID)).
+    Set(
+        u.NAME.SetString("bob"), 
+        ur.ROLE.SetString("student"),
+        urs.TEAM_ID.SetInt(3),
+    ).
+    Where(urs.TEAM_ID.EqInt(15)).
+    ToSQL()
+_, err := DB.Exec(query, args...)
+if err != nil {
+    /* handle error */
+}
+
+// ...if you use Exec
+_, err := sq.Update(u).
+    Join(ur, ur.USER_ID.Eq(u.USER_ID)).
+    Join(urs, urs.USER_ROLE_ID.Eq(ur.USER_ROLE_ID)).
+    Set(
+        u.NAME.SetString("bob"), 
+        ur.ROLE.SetString("student"),
+        urs.TEAM_ID.SetInt(3),
+    ).
+    Set(u.NAME.SetString("bob"), u.PASSWORD.SetString("1234")).
+    Where(urs.TEAM_ID.EqInt(15)).
+    Exec(DB, 0)
+if err != nil {
+    /* handle error */
+}
+</code></pre>
+
+  <div>
+    <h3 class="dib">
+      <a id="clause-manipulation" href="#clause-manipulation" class="sakura-gray no-underline pilcrow">
+        Clause manipulation
+      </a>
+    </h3>
+    &nbsp;&nbsp;<a href="#contents">contents</a>
+  </div>
+  Clauses are just struct fields, you can either use method chaining to add clauses or manipulate the struct fields directly.
+  <br>
+  <a id="clauses" href="#clauses" class="sakura-gray no-underline"><b>Clauses:</b></a>
+  <a href="#clause-with">WITH</a>,
+  <a href="#clause-update">UPDATE</a>,
+  <a href="#clause-set">SET</a>,
+  <a href="#clause-from">FROM (postgres only)</a>,
+  <a href="#clause-join">JOIN</a>,
+  <a href="#clause-where">WHERE</a>,
+  <a href="#clause-order-by">ORDER BY (mysql only)</a>,
+  <a href="#clause-limit">LIMIT (mysql only)</a>,
+  <a href="#clause-returning">RETURNING (postgres only)</a>
+  <ul>
+    <li>
+      <div>
+        <a id="clause-with" href="#clause-with" class="sakura-gray no-underline"><b>WITH</b></a>
+        &nbsp;&nbsp;<a href="#clauses">clauses</a>
+      </div>
+      <div>For more information see <a href="/sq/sql-expressions/common-table-expressions.html">Common Table Expressions</a>.</div>
+      <pre><code class="language-go">var q sq.InsertQuery
+
+// Adding
+
+q = q.With(cte1, cte2, cte3)
+// is equivalent to //
+q = q.With(cte1).With(cte2).With(cte3)
+// is equivalent to //
+q.CTEs = []sq.CTE{cte1, cte2, cte3}
+
+// Removing
+
+q.CTEs = nil
+</code></pre>
+    </li>
+    <li>
+      <div>
+        <a id="clause-update" href="#clause-update" class="sakura-gray no-underline"><b>UPDATE</b></a>
+        &nbsp;&nbsp;<a href="#clauses">clauses</a>
+      </div>
+      <pre><code class="language-go">var q sq.InsertQuery
+
+// Adding
+
+q = q.Update(table)
+// is equivalent to //
+q.UpdateTable = table
+
+// Removing
+
+q.UpdateTable = nil
+</code></pre>
+    </li>
+    <li>
+      <div>
+        <a id="clause-set" href="#clause-set" class="sakura-gray no-underline"><b>SET</b></a>
+        &nbsp;&nbsp;<a href="#clauses">clauses</a>
+      </div>
+      <pre><code class="language-go">var q sq.InsertQuery
+
+// Adding
+
+q = q.Set(assignment1, assignment2)
+// is equivalent to //
+q.Assignments = []sq.Assignment{assignment1, assignment2}
+
+// Removing
+
+q.Assignments = nil
+</code></pre>
+    </li>
+    <li>
+      <div>
+        <a id="clause-from" href="#clause-from" class="sakura-gray no-underline"><b>FROM (postgres only)</b></a>
+        &nbsp;&nbsp;<a href="#clauses">clauses</a>
+      </div>
+      <pre><code class="language-go">var q sq.UpdateQuery
+
+// Adding
+
+q = q.From(table)
+// is equivalent to //
+q.FromTable = table
+
+// Removing
+
+q.FromTable = nil
+</code></pre>
+    </li>
+    <li>
+      <div>
+        <a id="clause-join" href="#clause-join" class="sakura-gray no-underline"><b>JOIN</b></a>
+        &nbsp;&nbsp;<a href="#clauses">clauses</a>
+      </div>
+      <pre><code class="language-go">var q sq.UpdateQuery
+
+// Adding
+
+q = q.Join(table1, predicate1).
+    LeftJoin(table2, predicate2).
+    FullJoin(table3, predicate3)
+// is equivalent to //
+q.JoinTables = []sq.JoinTable{
+    sq.Join(table1, predicate1),
+    sq.LeftJoin(table2, predicate2),
+    sq.FullJoin(table3, predicate3),
+}
+
+// Removing
+
+q.JoinTables = nil
+</code></pre>
+    </li>
+    <li>
+      <div>
+        <a id="clause-where" href="#clause-where" class="sakura-gray no-underline"><b>WHERE</b></a>
+        &nbsp;&nbsp;<a href="#clauses">clauses</a>
+      </div>
+      <pre><code class="language-go">var q sq.UpdateQuery
+
+// Adding
+
+q = q.Where(predicate1, predicate2, predicate3)
+// is equivalent to //
+q = q.Where(predicate1).Where(predicate2).Where(predicate3)
+// is equivalent to //
+q.WherePredicate.Predicates = []sq.Predicate{
+    predicate1, 
+    predicate2, 
+    predicate3,
+}
+
+// Removing
+
+q.WherePredicate.Predicates = nil
+</code></pre>
+    </li>
+    <li>
+      <div>
+        <a id="clause-order-by" href="#clause-order-by" class="sakura-gray no-underline"><b>ORDER BY (mysql only)</b></a>
+        &nbsp;&nbsp;<a href="#clauses">clauses</a>
+      </div>
+      <pre><code class="language-go">var q sq.UpdateQuery
+
+// Adding
+
+q = q.OrderBy(field1, field2, field3)
+// is equivalent to //
+q = q.OrderBy(field1).OrderBy(field2).OrderBy(field3)
+// is equivalent to //
+q.OrderByFields = []sq.Field{field1, field2, field3}
+
+// Removing
+
+q.OrderByFields = nil
+</code></pre>
+    </li>
+    <li>
+      <div>
+        <a id="clause-limit" href="#clause-limit" class="sakura-gray no-underline"><b>LIMIT (mysql only)</b></a>
+        &nbsp;&nbsp;<a href="#clauses">clauses</a>
+      </div>
+      <pre><code class="language-go">var q sq.UpdateQuery
+
+// Adding
+
+q = q.Limit(10)
+// is equivalent to //
+limit := int64(10)
+q.LimitValue = &amp;limit
+
+// Removing
+
+q.LimitValue = nil
+</code></pre>
+    </li>
+    <li>
+      <div>
+        <a id="clause-returning" href="#clause-returning" class="sakura-gray no-underline"><b>RETURNING (postgres only)</b></a>
+        &nbsp;&nbsp;<a href="#clauses">clauses</a>
+      </div>
+      <pre><code class="language-go">var q sq.UpdateQuery
+
+// Adding
+
+q = q.Returning(field1, field2, field3)
+// is equivalent to //
+q = q.Returning(field1).Returning(field2).Returning(field3)
+// is equivalent to //
+q.ReturningFields = []sq.Field{field1, field2, field3}
+
+// Removing
+
+q.ReturningFields = nil
+</code></pre>
+    </li>
+  </ul>
+
+  <div class="flex justify-between">
+    <div><a href="/sq/query-building/insert.html">&lt; Prev: INSERT</a></div>
+    <div><a href="/sq#query-building">Up: Query Building</a></div>
+    <div><a href="/sq/query-building/delete.html">Next: DELETE &gt;</a></div>
+  </div>
+  <script src="/prismjs/prism.js"></script>
+</body>
+</html>

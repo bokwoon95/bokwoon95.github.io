@@ -1,0 +1,620 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/sq/favicon/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/sq/favicon/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/sq/favicon/favicon-16x16.png">
+  <link rel="manifest" href="/sq/favicon/site.webmanifest">
+  <link rel="stylesheet" href="/prismjs/atom-dark.css">
+  <link rel="stylesheet" href="/tachyons.css">
+  <link rel="stylesheet" href="/sakura.css">
+  <link rel="stylesheet" href="/sq/style.css">
+  <title>sq - Tables, fields and predicates</title>
+</head>
+<body>
+  <div class="flex justify-between">
+    <div><a href="/sq/basics/generating-table-types.html">&lt; Prev: Generating table types</a></div>
+    <div><a href="/sq#basics">Up: Basics</a></div>
+    <div><a href="/sq/basics/sql-escape-hatch.html">Next: SQL escape hatch &gt;</a></div>
+  </div>
+  <h1>Basics: Tables, fields and predicates</h1>
+  <h3>
+    <a id="contents" href="#contents" class="sakura-gray no-underline pilcrow">
+      Contents
+    </a>
+  </h3>
+  <ul>
+    <li><a href="#overview">Overview</a></li>
+    <li><a href="#comparison-operator-reference">Comparison Operator Reference</a></li>
+    <li><a href="#query-builder-reference">Query Builder Reference</a></li>
+  </ul>
+
+  <div>
+    <h3 class="dib">
+      <a id="overview" href="#overview" class="sakura-gray no-underline pilcrow">
+        Overview
+      </a>
+    </h3>
+    &nbsp;&nbsp;<a href="#contents">contents</a>
+  </div>
+  <p>
+    In sq, there are three entities that you will be interacting with the most: a table, a field and a predicate.
+    <ul>
+      <li>
+        <b><a id="table" href="#table" class="sakura-gray no-underline">A Table is:</a></b> anything that you can SELECT FROM or JOIN.
+        <pre><code class="language-go">users := tables.USERS()
+// FROM public.users
+From(users)
+//   └───┘
+//   Table
+
+// JOIN (SELECT users.name FROM users) AS subquery ON 1 = 1
+selectQuery := Select(users.NAME).From(users).As("subquery")
+Join(selectQuery, Int(1).EqInt(1))
+//   └─────────┘
+//      Table
+</code></pre>
+        <ul>
+          <li>
+            Tables can be aliased
+            <pre><code class="language-go">u := tables.USERS().As("u")
+// FROM public.users AS u
+From(u)
+</code></pre>
+          </li>
+          <li>There are two specialisations of Table: BaseTable and Query.
+            <ul>
+              <li>A <b><a id="base-table" href="#base-table" class="sakura-gray no-underline">BaseTable</a></b> is a table that actually exists in the database, and not some subquery or common table expression. These are code generated, so you don't have to worry about creating them.</li>
+              <li>A <b><a id="query" href="#query" class="sakura-gray no-underline">Query</a></b> is an instance of the SELECT, INSERT, UPDATE or DELETE query builder.</li>
+            </ul>
+          </li>
+        </ul>
+      </li>
+      <li>
+        <b><a id="field" href="#field" class="sakura-gray no-underline">A Field is:</a></b> any SQL expression that can be present in the SELECT clause. This is often a <a href="#table">Table</a> column, but it can also be a literal value or an expression made up of other expressions.
+        <pre><code class="language-go">users := tables.USERS()
+// SELECT users.user_id, users.name
+Select(users.USER_ID, users.NAME)
+//     └───────────┘  └────────┘
+//         Field         Field
+
+// SELECT 'lorem ipsum', COUNT(*)
+Select(String("lorem ipsum"), Count())
+//     └───────────────────┘  └─────┘
+//             Field           Field
+
+// SELECT COALESCE(users.score, users.previous_score))
+Select(Coalesce(users.SCORE, users.PREVIOUS_SCORE))
+//     │        └─────────┘  └──────────────────┘│
+//     │           Field             Field       │
+//     └─────────────────────────────────────────┘
+//                        Field
+</code></pre>
+        <ul>
+          <li>
+            Like Tables, Fields can also be aliased
+            <pre><code class="language-go">u := tables.USERS().As("u")
+// SELECT u.user_id AS uid FROM public.users AS u
+Select(u.USER_ID.As("uid")).From(u)
+</code></pre>
+          </li>
+        </ul>
+      </li>
+      <li>
+        <b><a id="predicate" href="#predicate" class="sakura-gray no-underline">A Predicate is:</a></b> something that evaluates to true or false (or NULL) in SQL. A Predicate is often made up of <a href="#field">Fields</a>, but a Predicate is also a Field itself.
+        <br>
+        <pre><code class="language-go">u, s := tables.USERS(), tables.STUDENTS()
+// WHERE users.user_id = students.user_id
+Where( u.USER_ID.Eq(s.USER_ID) )
+//     └─────────────────────┘
+//            Predicate
+
+// WHERE users.user_id = students.user_id AND users.user_id &lt;&gt; 33
+Where( u.USER_ID.Eq(s.USER_ID), u.USER_ID.NeInt(33) )
+//     └─────────────────────┘  └─────────────────┘
+//            Predicate              Predicate
+
+// WHERE (users.user_id = 1 OR users.user_id &gt; students.user_id) AND 1 = 1
+Where( Or( u.USER_ID.EqInt(1), u.USER_ID.Gt(s.USER_ID) ), Int(1).EqInt(1) )
+//     │   └────────────────┘  └─────────────────────┘ │  └─────────────┘
+//     │        Predicate             Predicate        │     Predicate
+//     └───────────────────────────────────────────────┘
+//                       Predicate
+</code></pre>
+        <em>Predicates passed to the WHERE clause are implictly AND-ed together.</em> If you want to use OR, wrap the predicates in <code>sq.Or()</code>.
+        <br>
+        To invert a Predicate, use <code>sq.Not</code> e.g. <code>A.Eq(B) =&gt; sq.Not(A.Eq(B))</code>
+      </li>
+    </ul>
+    <span class="f3 gray">* A boolean column, e.g. <code>users.is_active</code>, is both a Field and a Predicate. Hence it can be used anywhere where a Field or Predicate is expected.</span>
+  </p>
+
+  <p>To get a better idea of where tables, fields and predicates are used, just look at the <a href="#query-builder-reference">method signatures for each query builder</a>.</p>
+
+  <div>
+    <h3 class="dib">
+      <a id="comparison-operator-reference" href="#comparison-operator-reference" class="sakura-gray no-underline pilcrow">
+        Comparison Operator Reference
+      </a>
+    </h3>
+    &nbsp;&nbsp;<a href="#contents">contents</a>
+  </div>
+  <p>This is the comparison operator terminology that sq uses throughout its API. It should be familiar to anyone has used <a href="https://www.tldp.org/LDP/abs/html/comparison-ops.html">bash's comparison operators.</a></p>
+  <table>
+    <thead>
+      <tr>
+        <th>Method Name</th>
+        <th>SQL Equivalent</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Eq</td>
+        <td>=</td>
+      </tr>
+      <tr>
+        <td>Ne</td>
+        <td>&lt;&gt;</td>
+      </tr>
+      <tr>
+        <td>Gt</td>
+        <td>&gt;</td>
+      </tr>
+      <tr>
+        <td>Ge</td>
+        <td>&gt;=</td>
+      </tr>
+      <tr>
+        <td>Lt</td>
+        <td>&lt;</td>
+      </tr>
+      <tr>
+        <td>Le</td>
+        <td>&lt;=</td>
+      </tr>
+    </tbody>
+  </table>
+  <p>
+    Additionally, a method may also have a primitive-typed variants that specifically only accepts arguments of that type e.g.
+    <ul>
+      <li><code>Eq</code> accepts Fields</li>
+      <li><code>EqInt</code> accepts ints</li>
+      <li><code>EqString</code> accepts strings</li>
+      <li>etc</li>
+    </ul>
+  </p>
+
+
+  <div>
+    <h3 class="dib">
+      <a id="query-builder-reference" href="#query-builder-reference" class="sakura-gray no-underline pilcrow">
+        Query Builder Reference
+      </a>
+    </h3>
+    &nbsp;&nbsp;<a href="#contents">contents</a>
+  </div>
+  <p>Prerequisite: understand what a <a href="#table">Table</a>, <a href="#field">Field</a> and <a href="#predicate">Predicate</a> are.</p>
+  <ul>
+    <li>
+      <a href="#postgres">Postgres</a>
+      <ul class="mb0">
+        <li class="mb0"><a href="#postgres-select">SELECT</a></li>
+        <li class="mb0"><a href="#postgres-insert">INSERT</a></li>
+        <li class="mb0"><a href="#postgres-update">UPDATE</a></li>
+        <li class="mb0"><a href="#postgres-delete">DELETE</a></li>
+      </ul>
+    </li>
+    <li>
+      <a href="#mysql">MySQL</a>
+      <ul class="mb0">
+        <li class="mb0"><a href="#mysql-select">SELECT</a></li>
+        <li class="mb0"><a href="#mysql-insert">INSERT</a></li>
+        <li class="mb0"><a href="#mysql-update">UPDATE</a></li>
+        <li class="mb0"><a href="#mysql-delete">DELETE</a></li>
+      </ul>
+    </li>
+  </ul>
+
+  <h4>
+    <a id="postgres" href="#postgres" class="sakura-gray no-underline pilcrow">
+      Postgres
+    </a>
+  </h4>
+
+  <div>
+    <h5 class="dib">
+      <a id="postgres-select" href="#postgres-select" class="sakura-gray no-underline pilcrow">
+        Postgres SELECT
+      </a>
+    </h5>
+    &nbsp;&nbsp;<a href="#query-builder-reference">query builder reference</a>
+  </div>
+  <pre class="wide-width-l"><code>// The following function(s) create a new SelectQuery:
+<a href="https://godoc.org/github.com/bokwoon95/go-structured-query/postgres#From">From(table Table) SelectQuery</a>
+<a href="https://godoc.org/github.com/bokwoon95/go-structured-query/postgres#Select">Select(fields ...Field) SelectQuery</a>
+<a href="https://godoc.org/github.com/bokwoon95/go-structured-query/postgres#SelectOne">SelectOne() SelectQuery</a>
+<a href="https://godoc.org/github.com/bokwoon95/go-structured-query/postgres#SelectDistinct">SelectDistinct(fields ...Field) SelectQuery</a>
+<a href="https://godoc.org/github.com/bokwoon95/go-structured-query/postgres#SelectDistinctOn">SelectDistinctOn(distinctFields ...Field) func(fields ...Field) SelectQuery</a>
+// For more information on Selectx and SelectRowx, see <a href="/sq/basics/struct-mapping.html">Struct Mapping</a>.
+<a href="https://godoc.org/github.com/bokwoon95/go-structured-query/postgres#Selectx">Selectx(mapper func(*Row), accumulator func()) SelectQuery</a>
+<a href="https://godoc.org/github.com/bokwoon95/go-structured-query/postgres#SelectRowx">SelectRowx(mapper func(*Row)) SelectQuery</a>
+
+// Available methods on a SelectQuery:
+type SelectQuery struct {
+    // For more infomation on WITH, see <a href="/sq/sql-expressions/common-table-expressions.html">Common Table Expressions</a>.
+    <a href="https://godoc.org/github.com/bokwoon95/go-structured-query/postgres#SelectQuery.With">With(ctes ...CTE) SelectQuery</a>
+    // Select
+    <a href="https://godoc.org/github.com/bokwoon95/go-structured-query/postgres#SelectQuery.Select">Select(fields ...Field) SelectQuery</a>
+    <a href="https://godoc.org/github.com/bokwoon95/go-structured-query/postgres#SelectQuery.SelectOne">SelectOne() SelectQuery</a>
+    <a href="https://godoc.org/github.com/bokwoon95/go-structured-query/postgres#SelectQuery.SelectAll">SelectAll() SelectQuery</a>
+    <a href="https://godoc.org/github.com/bokwoon95/go-structured-query/postgres#SelectQuery.SelectCount">SelectCount() SelectQuery</a>
+    <a href="https://godoc.org/github.com/bokwoon95/go-structured-query/postgres#SelectQuery.SelectDistinct">SelectDistinct(fields ...Field) SelectQuery</a>
+    <a href="https://godoc.org/github.com/bokwoon95/go-structured-query/postgres#SelectQuery.SelectDistinctOn">SelectDistinctOn(distinctFields ...Field) func(fields ...Field) SelectQuery</a>
+    // From + Joins
+    <a href="https://godoc.org/github.com/bokwoon95/go-structured-query/postgres#SelectQuery.From">From(table Table) SelectQuery</a>
+    <a href="https://godoc.org/github.com/bokwoon95/go-structured-query/postgres#SelectQuery.Join">Join(table Table, predicate Predicate, predicates ...Predicate) SelectQuery</a>
+    <a href="https://godoc.org/github.com/bokwoon95/go-structured-query/postgres#SelectQuery.LeftJoin">LeftJoin(table Table, predicate Predicate, predicates ...Predicate) SelectQuery</a>
+    <a href="https://godoc.org/github.com/bokwoon95/go-structured-query/postgres#SelectQuery.RightJoin">RightJoin(table Table, predicate Predicate, predicates ...Predicate) SelectQuery</a>
+    <a href="https://godoc.org/github.com/bokwoon95/go-structured-query/postgres#SelectQuery.FullJoin">FullJoin(table Table, predicate Predicate, predicates ...Predicate) SelectQuery</a>
+    <a href="https://godoc.org/github.com/bokwoon95/go-structured-query/postgres#SelectQuery.CustomJoin">CustomJoin(joinType JoinType, table Table, predicates ...Predicate) SelectQuery</a>
+    // Where
+    <a href="https://godoc.org/github.com/bokwoon95/go-structured-query/postgres">Where(predicates ...Predicate) SelectQuery</a>
+    // Group By + Having
+    <a href="https://godoc.org/github.com/bokwoon95/go-structured-query/postgres">GroupBy(fields ...Field) SelectQuery</a>
+    <a href="https://godoc.org/github.com/bokwoon95/go-structured-query/postgres">Having(predicates ...Predicate) SelectQuery</a>
+    // For more information on Windows, see <a href="/sq/sql-expressions/window-functions.html">Window Functions</a>.
+    <a href="https://godoc.org/github.com/bokwoon95/go-structured-query/postgres">Window(windows ...Window) SelectQuery</a>
+    // Order By
+    <a href="https://godoc.org/github.com/bokwoon95/go-structured-query/postgres">OrderBy(fields ...Field) SelectQuery</a>
+    // Limit + Offset
+    <a href="https://godoc.org/github.com/bokwoon95/go-structured-query/postgres">Limit(limit int) SelectQuery</a>
+    <a href="https://godoc.org/github.com/bokwoon95/go-structured-query/postgres">Offset(offset int) SelectQuery</a>
+    // Alias
+    <a href="https://godoc.org/github.com/bokwoon95/go-structured-query/postgres">As(alias string) SelectQuery</a>
+    // For more information on Selectx and SelectRowx, see <a href="/sq/basics/struct-mapping.html">Struct Mapping</a>.
+    <a href="https://godoc.org/github.com/bokwoon95/go-structured-query/postgres">Selectx(mapper func(*Row), accumulator func()) SelectQuery</a>
+    <a href="https://godoc.org/github.com/bokwoon95/go-structured-query/postgres">SelectRowx(mapper func(*Row)) SelectQuery</a>
+    // For more information on Fetch and Exec, see <a href="/sq/basics/fetch-and-exec.html">Fetch and Exec</a>.
+    <a href="https://godoc.org/github.com/bokwoon95/go-structured-query/postgres">Fetch(db DB) error</a>
+    <a href="https://godoc.org/github.com/bokwoon95/go-structured-query/postgres">FetchContext(ctx context.Context, db DB) error</a>
+    <a href="https://godoc.org/github.com/bokwoon95/go-structured-query/postgres">Exec(db DB, flag ExecFlag) (rowsAffected int64, err error)</a>
+    <a href="https://godoc.org/github.com/bokwoon95/go-structured-query/postgres">ExecContext(ctx context.Context, db DB, flag ExecFlag) (rowsAffected int64, err error)</a>
+    // Serialize SelectQuery into query and args
+    <a href="https://godoc.org/github.com/bokwoon95/go-structured-query/postgres">ToSQL() (query string, args []interface{})</a>
+}
+</code></pre>
+
+  <div>
+    <h5 class="dib">
+      <a id="postgres-insert" href="#postgres-insert" class="sakura-gray no-underline pilcrow">
+        Postgres INSERT
+      </a>
+    </h5>
+    &nbsp;&nbsp;<a href="#query-builder-reference">query builder reference</a>
+  </div>
+  <pre class="wide-width-l"><code>// The following function(s) create a new InsertQuery:
+<a href="">InsertInto(table BaseTable) InsertQuery</a>
+
+// Available methods on an InsertQuery:
+type InsertQuery struct {
+    // For more infomation on WITH, see <a href="/sq/sql-expressions/common-table-expressions.html">Common Table Expressions</a>.
+    <a href="">With(ctes ...CTE) InsertQuery</a>
+    // Insert Into
+    <a href="">InsertInto(table Table) InsertQuery</a>
+    <a href="">Columns(fields ...Field) InsertQuery</a>
+    // Values
+    <a href="">Values(values ...interface{}) InsertQuery</a>
+    <a href="">InsertRow(sets ...FieldAssignment) InsertQuery</a>
+    // Select
+    <a href="">Select(selectQuery SelectQuery) InsertQuery</a>
+    // On Conflict
+    // For more information on using `ON CONFLICT ... DO UPDATE SET` see <a href="/sq/query-building/insert.html#upsert">Upsert</a>.
+    <a href="">OnConflict(fields ...Field) insertConflict</a>
+    <a href="">OnConflictOnConstraint(name string) insertConflict</a>
+    <a href="">(insertConflict).Where(predicates ...Predicate) insertConflict</a>
+    <a href="">(insertConflict).DoNothing() InsertQuery</a>
+    <a href="">(insertConflict).DoUpdateSet(sets ...FieldAssignment) InsertQuery</a>
+    // Where
+    <a href="">Where(predicates ...Predicate) InsertQuery</a>
+    // Returning
+    <a href="">Returning(fields ...Field) InsertQuery</a>
+    <a href="">ReturningOne() InsertQuery</a>
+    // Alias
+    <a href="https://godoc.org/github.com/bokwoon95/go-structured-query/postgres">As(alias string) InsertQuery</a>
+    // For more information on Returningx and ReturningRowx, see <a href="/sq/basics/struct-mapping.html">Struct Mapping</a>.
+    <a href="">Returningx(mapper func(*Row)) InsertQuery</a>
+    <a href="">ReturningRowx(mapper func(*Row), accumulator func()) InsertQuery</a>
+    // For more information on Fetch and Exec, see <a href="/sq/basics/fetch-and-exec.html">Fetch and Exec</a>.
+    <a href="https://godoc.org/github.com/bokwoon95/go-structured-query/postgres">Fetch(db DB) error</a>
+    <a href="https://godoc.org/github.com/bokwoon95/go-structured-query/postgres">FetchContext(ctx context.Context, db DB) error</a>
+    <a href="https://godoc.org/github.com/bokwoon95/go-structured-query/postgres">Exec(db DB, flag ExecFlag) (rowsAffected int64, err error)</a>
+    <a href="https://godoc.org/github.com/bokwoon95/go-structured-query/postgres">ExecContext(ctx context.Context, db DB, flag ExecFlag) (rowsAffected int64, err error)</a>
+    // Serialize InsertQuery into query and args
+    <a href="https://godoc.org/github.com/bokwoon95/go-structured-query/postgres">ToSQL() (query string, args []interface{})</a>
+}
+</code></pre>
+
+  <div>
+    <h5 class="dib">
+      <a id="postgres-update" href="#postgres-update" class="sakura-gray no-underline pilcrow">
+        Postgres UPDATE
+      </a>
+    </h5>
+    &nbsp;&nbsp;<a href="#query-builder-reference">query builder reference</a>
+  </div>
+  <pre class="wide-width-l"><code>// The following function(s) create a new UpdateQuery:
+<a href="">Update(table BaseTable) UpdateQuery</a>
+
+// Available methods on an UpdateQuery:
+type UpdateQuery struct {
+    // For more infomation on WITH, see <a href="/sq/sql-expressions/common-table-expressions.html">Common Table Expressions</a>.
+    <a href="">With(ctes ...CTE) UpdateQuery</a>
+    // Update
+    <a href="">Update(table BaseTable) UpdateQuery</a>
+    // Set
+    <a href="https://godoc.org/github.com/bokwoon95/go-structured-query/postgres">Set(sets ...FieldAssignment) UpdateQuery</a>
+    // From + Joins
+    <a href="https://godoc.org/github.com/bokwoon95/go-structured-query/postgres">From(table Table) UpdateQuery</a>
+    <a href="https://godoc.org/github.com/bokwoon95/go-structured-query/postgres">Join(table Table, predicate Predicate, predicates ...Predicate) UpdateQuery</a>
+    <a href="https://godoc.org/github.com/bokwoon95/go-structured-query/postgres">LeftJoin(table Table, predicate Predicate, predicates ...Predicate) UpdateQuery</a>
+    <a href="https://godoc.org/github.com/bokwoon95/go-structured-query/postgres">RightJoin(table Table, predicate Predicate, predicates ...Predicate) UpdateQuery</a>
+    <a href="https://godoc.org/github.com/bokwoon95/go-structured-query/postgres">FullJoin(table Table, predicate Predicate, predicates ...Predicate) UpdateQuery</a>
+    <a href="https://godoc.org/github.com/bokwoon95/go-structured-query/postgres">CustomJoin(joinType JoinType, table Table, predicates ...Predicate) UpdateQuery</a>
+    // Where
+    <a href="https://godoc.org/github.com/bokwoon95/go-structured-query/postgres">Where(predicates ...Predicate) UpdateQuery</a>
+    // Returning
+    <a href="">Returning(fields ...Field) UpdateQuery</a>
+    <a href="">ReturningOne() UpdateQuery</a>
+    // Alias
+    <a href="https://godoc.org/github.com/bokwoon95/go-structured-query/postgres">As(alias string) UpdateQuery</a>
+    // For more information on Returningx and ReturningRowx, see <a href="/sq/basics/struct-mapping.html">Struct Mapping</a>.
+    <a href="">Returningx(mapper func(*Row)) UpdateQuery</a>
+    <a href="">ReturningRowx(mapper func(*Row), accumulator func()) UpdateQuery</a>
+    // For more information on Fetch and Exec, see <a href="/sq/basics/fetch-and-exec.html">Fetch and Exec</a>.
+    <a href="https://godoc.org/github.com/bokwoon95/go-structured-query/postgres">Fetch(db DB) error</a>
+    <a href="https://godoc.org/github.com/bokwoon95/go-structured-query/postgres">FetchContext(ctx context.Context, db DB) error</a>
+    <a href="https://godoc.org/github.com/bokwoon95/go-structured-query/postgres">Exec(db DB, flag ExecFlag) (rowsAffected int64, err error)</a>
+    <a href="https://godoc.org/github.com/bokwoon95/go-structured-query/postgres">ExecContext(ctx context.Context, db DB, flag ExecFlag) (rowsAffected int64, err error)</a>
+    // Serialize UpdateQuery into query and args
+    <a href="https://godoc.org/github.com/bokwoon95/go-structured-query/postgres">ToSQL() (query string, args []interface{})</a>
+}
+</code></pre>
+
+  <div>
+    <h5 class="dib">
+    <a id="postgres-delete" href="#postgres-delete" class="sakura-gray no-underline pilcrow">
+      Postgres DELETE
+    </a>
+    </h5>
+    &nbsp;&nbsp;<a href="#query-builder-reference">query builder reference</a>
+  </div>
+  <pre class="wide-width-l"><code>// The following function(s) create a new DeleteQuery:
+<a href="">DeleteFrom(table BaseTable) DeleteQuery</a>
+
+// Available methods on an DeleteQuery:
+type DeleteQuery struct {
+    // For more infomation on WITH, see <a href="/sq/sql-expressions/common-table-expressions.html">Common Table Expressions</a>.
+    <a href="">With(ctes ...CTE) DeleteQuery</a>
+    // Delete From
+    <a href="">DeleteFrom(table BaseTable) DeleteQuery</a>
+    // Using + Joins
+    <a href="https://godoc.org/github.com/bokwoon95/go-structured-query/postgres">Using(table Table) DeleteQuery</a>
+    <a href="https://godoc.org/github.com/bokwoon95/go-structured-query/postgres">Join(table Table, predicate Predicate, predicates ...Predicate) DeleteQuery</a>
+    <a href="https://godoc.org/github.com/bokwoon95/go-structured-query/postgres">LeftJoin(table Table, predicate Predicate, predicates ...Predicate) DeleteQuery</a>
+    <a href="https://godoc.org/github.com/bokwoon95/go-structured-query/postgres">RightJoin(table Table, predicate Predicate, predicates ...Predicate) DeleteQuery</a>
+    <a href="https://godoc.org/github.com/bokwoon95/go-structured-query/postgres">FullJoin(table Table, predicate Predicate, predicates ...Predicate) DeleteQuery</a>
+    <a href="https://godoc.org/github.com/bokwoon95/go-structured-query/postgres">CustomJoin(joinType JoinType, table Table, predicates ...Predicate) DeleteQuery</a>
+    // Where
+    <a href="https://godoc.org/github.com/bokwoon95/go-structured-query/postgres">Where(predicates ...Predicate) DeleteQuery</a>
+    // Returning
+    <a href="">Returning(fields ...Field) DeleteQuery</a>
+    <a href="">ReturningOne() DeleteQuery</a>
+    // Alias
+    <a href="https://godoc.org/github.com/bokwoon95/go-structured-query/postgres">As(alias string) DeleteQuery</a>
+    // For more information on Returningx and ReturningRowx, see <a href="/sq/basics/struct-mapping.html">Struct Mapping</a>.
+    <a href="">Returningx(mapper func(*Row)) DeleteQuery</a>
+    <a href="">ReturningRowx(mapper func(*Row), accumulator func()) DeleteQuery</a>
+    // For more information on Fetch and Exec, see <a href="/sq/basics/fetch-and-exec.html">Fetch and Exec</a>.
+    <a href="https://godoc.org/github.com/bokwoon95/go-structured-query/postgres">Fetch(db DB) error</a>
+    <a href="https://godoc.org/github.com/bokwoon95/go-structured-query/postgres">FetchContext(ctx context.Context, db DB) error</a>
+    <a href="https://godoc.org/github.com/bokwoon95/go-structured-query/postgres">Exec(db DB, flag ExecFlag) (rowsAffected int64, err error)</a>
+    <a href="https://godoc.org/github.com/bokwoon95/go-structured-query/postgres">ExecContext(ctx context.Context, db DB, flag ExecFlag) (rowsAffected int64, err error)</a>
+    // Serialize DeleteQuery into query and args
+    <a href="https://godoc.org/github.com/bokwoon95/go-structured-query/postgres">ToSQL() (query string, args []interface{})</a>
+}
+</code></pre>
+
+  <h4>
+    <a id="mysql" href="#mysql" class="sakura-gray no-underline pilcrow">
+      MySQL
+    </a>
+  </h4>
+
+  <div>
+    <h5 class="dib">
+      <a id="mysql-select" href="#mysql-select" class="sakura-gray no-underline pilcrow">
+        MySQL SELECT
+      </a>
+    </h5>
+    &nbsp;&nbsp;<a href="#query-builder-reference">query builder reference</a>
+  </div>
+  <pre class="wide-width-l"><code>// The following function(s) create a new SelectQuery:
+<a href="https://godoc.org/github.com/bokwoon95/go-structured-query/mysql">From(table Table) SelectQuery</a>
+<a href="https://godoc.org/github.com/bokwoon95/go-structured-query/mysql">Select(fields ...Field) SelectQuery</a>
+<a href="https://godoc.org/github.com/bokwoon95/go-structured-query/mysql">SelectOne() SelectQuery</a>
+<a href="https://godoc.org/github.com/bokwoon95/go-structured-query/mysql">SelectDistinct(fields ...Field) SelectQuery</a>
+// For more information on Selectx and SelectRowx, see <a href="/sq/basics/struct-mapping.html">Struct Mapping</a>.
+<a href="https://godoc.org/github.com/bokwoon95/go-structured-query/mysql">Selectx(mapper func(*Row), accumulator func()) SelectQuery</a>
+<a href="https://godoc.org/github.com/bokwoon95/go-structured-query/mysql">SelectRowx(mapper func(*Row)) SelectQuery</a>
+
+// Available methods on a SelectQuery:
+type SelectQuery struct {
+    // For more infomation on WITH, see <a href="/sq/sql-expressions/common-table-expressions.html">Common Table Expressions</a>.
+    <a href="https://godoc.org/github.com/bokwoon95/go-structured-query/mysql#SelectQuery.With">With(ctes ...CTE) SelectQuery</a>
+    // Select
+    <a href="https://godoc.org/github.com/bokwoon95/go-structured-query/mysql">Select(fields ...Field) SelectQuery</a>
+    <a href="https://godoc.org/github.com/bokwoon95/go-structured-query/mysql">SelectOne() SelectQuery</a>
+    <a href="https://godoc.org/github.com/bokwoon95/go-structured-query/mysql">SelectAll() SelectQuery</a>
+    <a href="https://godoc.org/github.com/bokwoon95/go-structured-query/mysql">SelectCount() SelectQuery</a>
+    <a href="https://godoc.org/github.com/bokwoon95/go-structured-query/mysql">SelectDistinct(fields ...Field) SelectQuery</a>
+    // From + Joins
+    <a href="https://godoc.org/github.com/bokwoon95/go-structured-query/mysql">From(table Table) SelectQuery</a>
+    <a href="https://godoc.org/github.com/bokwoon95/go-structured-query/mysql">Join(table Table, predicate Predicate, predicates ...Predicate) SelectQuery</a>
+    <a href="https://godoc.org/github.com/bokwoon95/go-structured-query/mysql">LeftJoin(table Table, predicate Predicate, predicates ...Predicate) SelectQuery</a>
+    <a href="https://godoc.org/github.com/bokwoon95/go-structured-query/mysql">RightJoin(table Table, predicate Predicate, predicates ...Predicate) SelectQuery</a>
+    <a href="https://godoc.org/github.com/bokwoon95/go-structured-query/mysql">FullJoin(table Table, predicate Predicate, predicates ...Predicate) SelectQuery</a>
+    <a href="https://godoc.org/github.com/bokwoon95/go-structured-query/mysql">CustomJoin(joinType JoinType, table Table, predicates ...Predicate) SelectQuery</a>
+    // Where
+    <a href="https://godoc.org/github.com/bokwoon95/go-structured-query/mysql">Where(predicates ...Predicate) SelectQuery</a>
+    // Group By + Having
+    <a href="https://godoc.org/github.com/bokwoon95/go-structured-query/mysql">GroupBy(fields ...Field) SelectQuery</a>
+    <a href="https://godoc.org/github.com/bokwoon95/go-structured-query/mysql">Having(predicates ...Predicate) SelectQuery</a>
+    // For more information on Windows, see <a href="/sq/sql-expressions/window-functions.html">Window Functions</a>.
+    <a href="https://godoc.org/github.com/bokwoon95/go-structured-query/mysql">Window(windows ...Window) SelectQuery</a>
+    // Order By
+    <a href="https://godoc.org/github.com/bokwoon95/go-structured-query/mysql">OrderBy(fields ...Field) SelectQuery</a>
+    // Limit + Offset
+    <a href="https://godoc.org/github.com/bokwoon95/go-structured-query/mysql">Limit(limit int) SelectQuery</a>
+    <a href="https://godoc.org/github.com/bokwoon95/go-structured-query/mysql">Offset(offset int) SelectQuery</a>
+    // Alias
+    <a href="https://godoc.org/github.com/bokwoon95/go-structured-query/mysql">As(alias string) SelectQuery</a>
+    // For more information on Selectx and SelectRowx, see <a href="/sq/basics/struct-mapping.html">Struct Mapping</a>.
+    <a href="https://godoc.org/github.com/bokwoon95/go-structured-query/mysql">Selectx(mapper func(*Row), accumulator func()) SelectQuery</a>
+    <a href="https://godoc.org/github.com/bokwoon95/go-structured-query/mysql">SelectRowx(mapper func(*Row)) SelectQuery</a>
+    // For more information on Fetch, see <a href="/sq/basics/fetch-and-exec.html">Fetch and Exec</a>.
+    <a href="https://godoc.org/github.com/bokwoon95/go-structured-query/mysql">Fetch(db DB) error</a>
+    <a href="https://godoc.org/github.com/bokwoon95/go-structured-query/mysql">FetchContext(ctx context.Context, db DB) error</a>
+    // Serialize SelectQuery into query and args
+    <a href="https://godoc.org/github.com/bokwoon95/go-structured-query/mysql">ToSQL() (query string, args []interface{})</a>
+}
+</code></pre>
+
+  <div>
+    <h5 class="dib">
+      <a id="mysql-insert" href="#mysql-insert" class="sakura-gray no-underline pilcrow">
+        MySQL INSERT
+      </a>
+    </h5>
+    &nbsp;&nbsp;<a href="#query-builder-reference">query builder reference</a>
+  </div>
+  <pre class="wide-width-l"><code>// The following function(s) create a new InsertQuery:
+<a href="">InsertInto(table BaseTable) InsertQuery</a>
+<a href="">InsertIgnoreInto(table BaseTable) InsertQuery</a>
+
+// Available methods on an InsertQuery:
+type InsertQuery struct {
+    // Insert Into
+    <a href="">InsertInto(table Table) InsertQuery</a>
+    <a href="">Columns(fields ...Field) InsertQuery</a>
+    // Values
+    <a href="">Values(values ...interface{}) InsertQuery</a>
+    <a href="">InsertRow(sets ...FieldAssignment) InsertQuery</a>
+    // Select
+    <a href="">Select(selectQuery SelectQuery) InsertQuery</a>
+    // On Duplicate Key Update
+    // For more information on using `ON DUPLICATE KEY UPDATE` see <a href="/sq/query-building/insert.html#upsert">Upsert</a>.
+    <a href="">OnDuplicateKeyUpdate(sets ...FieldAssignment) InsertQuery</a>
+    // Where
+    <a href="">Where(predicates ...Predicate) InsertQuery</a>
+    // Alias
+    <a href="https://godoc.org/github.com/bokwoon95/go-structured-query/mysql">As(alias string) InsertQuery</a>
+    // For more information on Exec, see <a href="/sq/basics/fetch-and-exec.html">Fetch and Exec</a>.
+    <a href="https://godoc.org/github.com/bokwoon95/go-structured-query/mysql">Exec(db DB, flag ExecFlag) (lastInsertID, rowsAffected int64, err error)</a>
+    <a href="https://godoc.org/github.com/bokwoon95/go-structured-query/mysql">ExecContext(ctx context.Context, db DB, flag ExecFlag) (lastInsertID, rowsAffected int64, err error)</a>
+    // Serialize InsertQuery into query and args
+    <a href="https://godoc.org/github.com/bokwoon95/go-structured-query/mysql">ToSQL() (query string, args []interface{})</a>
+}
+</code></pre>
+
+  <div>
+    <h5 class="dib">
+      <a id="mysql-update" href="#mysql-update" class="sakura-gray no-underline pilcrow">
+        MySQL UPDATE
+      </a>
+    </h5>
+    &nbsp;&nbsp;<a href="#query-builder-reference">query builder reference</a>
+  </div>
+  <pre class="wide-width-l"><code>// The following function(s) create a new UpdateQuery:
+<a href="">Update(table BaseTable) UpdateQuery</a>
+
+// Available methods on an UpdateQuery:
+type UpdateQuery struct {
+    // For more infomation on WITH, see <a href="/sq/sql-expressions/common-table-expressions.html">Common Table Expressions</a>.
+    <a href="">With(ctes ...CTE) UpdateQuery</a>
+    // Update
+    <a href="">Update(table BaseTable) UpdateQuery</a>
+    // Set
+    <a href="https://godoc.org/github.com/bokwoon95/go-structured-query/mysql">Set(sets ...FieldAssignment) UpdateQuery</a>
+    // Joins
+    <a href="https://godoc.org/github.com/bokwoon95/go-structured-query/mysql">Join(table Table, predicate Predicate, predicates ...Predicate) UpdateQuery</a>
+    <a href="https://godoc.org/github.com/bokwoon95/go-structured-query/mysql">LeftJoin(table Table, predicate Predicate, predicates ...Predicate) UpdateQuery</a>
+    <a href="https://godoc.org/github.com/bokwoon95/go-structured-query/mysql">RightJoin(table Table, predicate Predicate, predicates ...Predicate) UpdateQuery</a>
+    <a href="https://godoc.org/github.com/bokwoon95/go-structured-query/mysql">FullJoin(table Table, predicate Predicate, predicates ...Predicate) UpdateQuery</a>
+    <a href="https://godoc.org/github.com/bokwoon95/go-structured-query/mysql">CustomJoin(joinType JoinType, table Table, predicates ...Predicate) UpdateQuery</a>
+    // Where
+    <a href="https://godoc.org/github.com/bokwoon95/go-structured-query/mysql">Where(predicates ...Predicate) UpdateQuery</a>
+    // Order By
+    <a href="https://godoc.org/github.com/bokwoon95/go-structured-query/mysql">OrderBy(fields ...Field) UpdateQuery</a>
+    // Limit
+    <a href="https://godoc.org/github.com/bokwoon95/go-structured-query/mysql">Limit(limit int) UpdateQuery</a>
+    // Alias
+    <a href="https://godoc.org/github.com/bokwoon95/go-structured-query/mysql">As(alias string) UpdateQuery</a>
+    // For more information on Exec, see <a href="/sq/basics/fetch-and-exec.html">Fetch and Exec</a>.
+    <a href="https://godoc.org/github.com/bokwoon95/go-structured-query/mysql">Exec(db DB, flag ExecFlag) (rowsAffected int64, err error)</a>
+    <a href="https://godoc.org/github.com/bokwoon95/go-structured-query/mysql">ExecContext(ctx context.Context, db DB, flag ExecFlag) (rowsAffected int64, err error)</a>
+    // Serialize UpdateQuery into query and args
+    <a href="https://godoc.org/github.com/bokwoon95/go-structured-query/mysql">ToSQL() (query string, args []interface{})</a>
+}
+</code></pre>
+
+  <div>
+    <h5 class="dib">
+      <a id="mysql-delete" href="#mysql-delete" class="sakura-gray no-underline pilcrow">
+        MySQL DELETE
+      </a>
+    </h5>
+    &nbsp;&nbsp;<a href="#query-builder-reference">query builder reference</a>
+  </div>
+  <pre class="wide-width-l"><code>// The following function(s) create a new DeleteQuery:
+<a href="">DeleteFrom(table BaseTable) DeleteQuery</a>
+
+// Available methods on an DeleteQuery:
+type DeleteQuery struct {
+    // For more infomation on WITH, see <a href="/sq/sql-expressions/common-table-expressions.html">Common Table Expressions</a>.
+    <a href="">With(ctes ...CTE) DeleteQuery</a>
+    // Delete From
+    <a href="">DeleteFrom(tables ...BaseTable) DeleteQuery</a>
+    // Using + Joins
+    <a href="https://godoc.org/github.com/bokwoon95/go-structured-query/mysql">Using(table Table) DeleteQuery</a>
+    <a href="https://godoc.org/github.com/bokwoon95/go-structured-query/mysql">Join(table Table, predicate Predicate, predicates ...Predicate) DeleteQuery</a>
+    <a href="https://godoc.org/github.com/bokwoon95/go-structured-query/mysql">LeftJoin(table Table, predicate Predicate, predicates ...Predicate) DeleteQuery</a>
+    <a href="https://godoc.org/github.com/bokwoon95/go-structured-query/mysql">RightJoin(table Table, predicate Predicate, predicates ...Predicate) DeleteQuery</a>
+    <a href="https://godoc.org/github.com/bokwoon95/go-structured-query/mysql">FullJoin(table Table, predicate Predicate, predicates ...Predicate) DeleteQuery</a>
+    <a href="https://godoc.org/github.com/bokwoon95/go-structured-query/mysql">CustomJoin(joinType JoinType, table Table, predicates ...Predicate) DeleteQuery</a>
+    // Where
+    <a href="https://godoc.org/github.com/bokwoon95/go-structured-query/mysql">Where(predicates ...Predicate) DeleteQuery</a>
+    // Order By
+    <a href="https://godoc.org/github.com/bokwoon95/go-structured-query/mysql">OrderBy(fields ...Field) DeleteQuery</a>
+    // Limit
+    <a href="https://godoc.org/github.com/bokwoon95/go-structured-query/mysql">Limit(limit int) DeleteQuery</a>
+    // Alias
+    <a href="https://godoc.org/github.com/bokwoon95/go-structured-query/mysql">As(alias string) DeleteQuery</a>
+    // For more information on Exec, see <a href="/sq/basics/fetch-and-exec.html">Fetch and Exec</a>.
+    <a href="https://godoc.org/github.com/bokwoon95/go-structured-query/mysql">Exec(db DB, flag ExecFlag) (rowsAffected int64, err error)</a>
+    <a href="https://godoc.org/github.com/bokwoon95/go-structured-query/mysql">ExecContext(ctx context.Context, db DB, flag ExecFlag) (rowsAffected int64, err error)</a>
+    // Serialize DeleteQuery into query and args
+    <a href="https://godoc.org/github.com/bokwoon95/go-structured-query/mysql">ToSQL() (query string, args []interface{})</a>
+}
+</code></pre>
+
+  <div class="flex justify-between">
+    <div><a href="/sq/basics/generating-table-types.html">&lt; Prev: Generating table types</a></div>
+    <div><a href="/sq#basics">Up: Basics</a></div>
+    <div><a href="/sq/basics/sql-escape-hatch.html">Next: SQL escape hatch &gt;</a></div>
+  </div>
+  <p></p>
+  <script src="/prismjs/prism.js"></script>
+</body>
+</html>

@@ -1,0 +1,793 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/sq/favicon/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/sq/favicon/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/sq/favicon/favicon-16x16.png">
+  <link rel="manifest" href="/sq/favicon/site.webmanifest">
+  <link rel="stylesheet" href="/prismjs/atom-dark.css">
+  <link rel="stylesheet" href="/tachyons.css">
+  <link rel="stylesheet" href="/sakura.css">
+  <link rel="stylesheet" href="/sq/style.css">
+  <title>sq - INSERT</title>
+</head>
+<body>
+  <div class="flex justify-between">
+    <div><a href="/sq/query-building/select.html">&lt; Prev: SELECT</a></div>
+    <div><a href="/sq#query-building">Up: Query Building</a></div>
+    <div><a href="/sq/query-building/update.html">Next: UPDATE &gt;</a></div>
+  </div>
+  <h1>Query Building: INSERT</h1>
+  <h3>
+    <a id="contents" href="#contents" class="sakura-gray no-underline pilcrow">
+      Contents
+    </a>
+  </h3>
+  <ul>
+    <li><a href="#basic-example">Basic example</a></li>
+    <li><a href="#last-insert-id">Getting the last inserted AUTO_INCREMENT/SERIAL ID</a></li>
+    <li><a href="#ignore-duplicates">INSERT and ignore duplicates</a></li>
+    <li><a href="#upsert">Upsert</a></li>
+    <li><a href="#insert-from-select">INSERT from SELECT</a></li>
+    <li><a href="#insert-row">Binding values to columns</a></li>
+    <li><a href="#clause-manipulation">Clause manipulation</a></li>
+  </ul>
+
+  <div>
+    <h3 class="dib">
+      <a id="basic-example" href="#basic-example" class="sakura-gray no-underline pilcrow">
+        Basic example
+      </a>
+    </h3>
+    &nbsp;&nbsp;<a href="#contents">contents</a>
+  </div>
+  SQL
+  <pre><code class="language-sql">INSERT INTO public.users (name, email)
+VALUES ('bob', 'bob@email.com'), ('alice', 'alice@email.com');
+</code></pre>
+  Go
+  <pre><code class="language-go">u := tables.USERS()
+
+// ...if you use ToSQL
+query, args := sq.InsertInto(u).
+    Columns(u.NAME, u.EMAIL).
+    Values("bob", "bob@email.com").
+    Values("alice", "alice@email.com").
+    ToSQL()
+_, err := DB.Exec(query, args...)
+if err != nil {
+    /* handle error */
+}
+
+// ...if you use Exec
+_, err := sq.InsertInto(u).
+    Columns(u.NAME, u.EMAIL).
+    Values("bob", "bob@email.com").
+    Values("alice", "alice@email.com").
+    Exec(DB, 0)
+if err != nil {
+    /* handle error */
+}
+</code></pre>
+
+  <div>
+    <h3 class="dib">
+      <a id="last-insert-id" href="#last-insert-id" class="sakura-gray no-underline pilcrow">
+        Getting the last inserted AUTO_INCREMENT/SERIAL ID
+      </a>
+    </h3>
+    &nbsp;&nbsp;<a href="#contents">contents</a>
+  </div>
+  SQL
+  <pre><code class="language-sql">--------------
+-- Postgres --
+--------------
+
+INSERT INTO public.users (name, email)
+VALUES ('bob', 'bob@email.com'), ('alice', 'alice@email.com')
+RETURNING u.user_id;
+
+-----------
+-- MySQL --
+-----------
+
+INSERT INTO public.users (name, email)
+VALUES ('bob', 'bob@email.com'), ('alice', 'alice@email.com');
+SELECT last_insert_id();
+</code></pre>
+</code></pre>
+  Go
+  <pre><code class="language-go">u := tables.USERS()
+var lastInsertID int64
+var lastInsertIDs []int64
+
+//----------//
+// Postgres //
+//----------//
+// Note: Postgres is able to return multiple INSERT-ed IDs, not just
+// the last inserted one
+
+// ...if you use ToSQL
+query, args := sq.InsertInto(u).
+    Columns(u.NAME, u.EMAIL).
+    Values("bob", "bob@email.com").
+    Values("alice", "alice@email.com").
+    Returning(u.USER_ID).
+    ToSQL()
+rows, err := DB.Query(query, args...)
+if err != nil {
+    /* handle error */
+}
+for rows.Next() {
+    err = rows.Scan(&amp;lastInsertID)
+    if err != nil {
+        /* handle error */
+    }
+    lastInsertIDs = append(lastInsertIDs, lastInsertID)
+}
+
+// ...if you use Returningx (see [Struct Mapping](/sq/basics/struct-mapping.html#select-one-vs-many))
+err := sq.InsertInto(u).
+    Columns(u.NAME, u.EMAIL).
+    Values("bob", "bob@email.com").
+    Values("alice", "alice@email.com").
+    Returningx(func(row *sq.Row) {
+        lastInsertID = row.Int64(u.USER_ID)
+    }, func() {
+        lastInsertIDs = append(lastInsertIDs, lastInsertID)
+    }).
+    Fetch(DB)
+if err != nil {
+    /* handle error */
+}
+
+// ...if you use ReturningRowx (see [Struct Mapping](/sq/basics/struct-mapping.html#select-one-vs-many))
+// ReturningRowx only returns one row, which means in this case it will only
+// return the user_id of 'bob'.
+err := sq.InsertInto(u).
+    Columns(u.NAME, u.EMAIL).
+    Values("bob", "bob@email.com").
+    Values("alice", "alice@email.com").
+    ReturningRowx(func(row *sq.Row) {
+        lastInsertID = row.Int64(u.USER_ID)
+    }).
+    Fetch(DB)
+if err != nil {
+    /* handle error */
+}
+
+//-------//
+// MySQL //
+//-------//
+
+// ...if you use ToSQL
+query, args := sq.InsertInto(u).
+    Columns(u.NAME, u.EMAIL).
+    Values("bob", "bob@email.com").
+    Values("alice", "alice@email.com").
+    Returning(u.USER_ID).
+    ToSQL()
+res, err := DB.Exec(query, args...)
+if err != nil {
+    /* handle error */
+}
+lastInsertID, err := res.LastInsertId() // user_id for 'bob'
+if err != nil {
+    /* handle error */
+}
+
+// ...if you use Exec
+lastInsertID, _, err := sq.InsertInto(u) // user_id for 'bob'
+    Columns(u.NAME, u.EMAIL).
+    Values("bob", "bob@email.com").
+    Values("alice", "alice@email.com").
+    Exec(DB, sq.ElastInsertID)
+if err != nil {
+    /* handle error */
+}
+</code></pre>
+
+  <div>
+    <h3 class="dib">
+      <a id="ignore-duplicates" href="#ignore-duplicates" class="sakura-gray no-underline pilcrow">
+        INSERT and ignore duplicates
+      </a>
+    </h3>
+    &nbsp;&nbsp;<a href="#contents">contents</a>
+  </div>
+  SQL
+  <pre><code class="language-sql">--------------
+-- Postgres --
+--------------
+
+INSERT INTO public.users (name, email)
+VALUES ('bob', 'bob@email.com'), ('alice', 'alice@email.com')
+ON CONFLICT DO NOTHING;
+
+-----------
+-- MySQL --
+-----------
+
+-- Ignoring all errors ([including wrong datatype and foreign key errors](https://stackoverflow.com/a/4596409))
+-- Only use if you really don't care about any possible errors
+INSERT IGNORE INTO public.users (name, email)
+VALUES ('bob', 'bob@email.com'), ('alice', 'alice@email.com');
+
+-- Ignoring duplicates by assigning a column to itself
+-- (MySQL will not run UPDATE if the value is the same)
+INSERT INTO public.users (name, email)
+VALUES ('bob', 'bob@email.com'), ('alice', 'alice@email.com')
+ON DUPLICATE KEY DO UPDATE email = email;
+</code></pre>
+  Go
+  <pre><code class="language-go">u := tables.USERS()
+
+//----------//
+// Postgres //
+//----------//
+
+// ...if you use ToSQL
+query, args := sq.InsertInto(u).
+    Columns(u.NAME, u.EMAIL).
+    Values("bob", "bob@email.com").
+    Values("alice", "alice@email.com").
+    OnConflict().DoNothing().
+    ToSQL()
+_, err := DB.Exec(query, args...)
+if err != nil {
+    /* handle error */
+}
+
+// ...if you use Exec
+_, err := sq.InsertInto(u).
+    Columns(u.NAME, u.EMAIL).
+    Values("bob", "bob@email.com").
+    Values("alice", "alice@email.com").
+    OnConflict().DoNothing().
+    Exec(DB, 0)
+if err != nil {
+    /* handle error */
+}
+
+//-------//
+// MySQL //
+//-------//
+
+// Ignoring all errors
+
+// ...if you use ToSQL
+query, args := sq.InsertIgnoreInto(u)
+    Columns(u.NAME, u.EMAIL).
+    Values("bob", "bob@email.com").
+    Values("alice", "alice@email.com").
+    ToSQL()
+_, err := DB.Exec(query, args...)
+if err != nil {
+    /* handle error */
+}
+
+// ...if you use Exec
+_, _, err := sq.InsertIgnoreInto(u)
+    Columns(u.NAME, u.EMAIL).
+    Values("bob", "bob@email.com").
+    Values("alice", "alice@email.com").
+    Exec(DB, 0)
+if err != nil {
+    /* handle error */
+}
+
+// Ignoring duplicates by assigning a column to itself
+
+// ...if you use ToSQL
+query, args := sq.InsertInto(u).
+    Columns(u.NAME, u.EMAIL).
+    Values("bob", "bob@email.com").
+    Values("alice", "alice@email.com").
+    OnDuplicateKeyUpdate(u.EMAIL.Set(u.EMAIL)).
+    ToSQL()
+_, err := DB.Exec(query, args...)
+if err != nil {
+    /* handle error */
+}
+
+// ...if you use Exec
+_, _, err := sq.InsertInto(u).
+    Columns(u.NAME, u.EMAIL).
+    Values("bob", "bob@email.com").
+    Values("alice", "alice@email.com").
+    OnDuplicateKeyUpdate(u.EMAIL.Set(u.EMAIL)).
+    Exec(DB, 0)
+if err != nil {
+    /* handle error */
+}
+</code></pre>
+
+  <div>
+    <h3 class="dib">
+      <a id="upsert" href="#upsert" class="sakura-gray no-underline pilcrow">
+        Upsert
+      </a>
+    </h3>
+    &nbsp;&nbsp;<a href="#contents">contents</a>
+  </div>
+  SQL
+  <pre><code class="language-sql">--------------
+-- Postgres --
+--------------
+-- [postgrestutorial.com: upsert](https://www.postgresqltutorial.com/postgresql-upsert/)
+
+-- Using conflict column(s)
+INSERT INTO public.users (name, email)
+VALUES ('bob', 'bob@email.com'), ('alice', 'alice@email.com')
+ON CONFLICT (email) DO UPDATE SET
+name = EXCLUDED.name;
+
+-- Using conflict constraint
+INSERT INTO public.users (name, email)
+VALUES ('bob', 'bob@email.com'), ('alice', 'alice@email.com')
+ON CONFLICT ON CONSTRAINT users_email_key DO UPDATE SET
+name = EXCLUDED.name;
+
+-----------
+-- MySQL --
+-----------
+-- [mysqltutorial.org: upsert](https://www.mysqltutorial.org/mysql-insert-or-update-on-duplicate-key-update/)
+
+INSERT INTO public.users (name, email)
+VALUES ('bob', 'bob@email.com'), ('alice', 'alice@email.com')
+ON DUPLICATE KEY DO UPDATE
+name = VALUES(name);
+</code></pre>
+  Go
+  <pre><code class="language-go">u := tables.USERS()
+
+//----------//
+// Postgres //
+//----------//
+
+// Using conflict columns(s)
+
+// ...if you use ToSQL
+query, args := sq.InsertInto(u).
+    Columns(u.NAME, u.EMAIL).
+    Values("bob", "bob@email.com").
+    Values("alice", "alice@email.com").
+    OnConflict(u.EMAIL).
+    DoUpdateSet(
+        u.NAME.Set(sq.Excluded(u.NAME)),
+    ).
+    ToSQL()
+_, err := DB.Exec(query, args...)
+if err != nil {
+    /* handle error */
+}
+
+// ...if you use Exec
+_, err := sq.InsertInto(u).
+    Columns(u.NAME, u.EMAIL).
+    Values("bob", "bob@email.com").
+    Values("alice", "alice@email.com").
+    OnConflict(u.EMAIL).
+    DoUpdateSet(
+        u.NAME.Set(sq.Excluded(u.NAME)),
+    ).
+    Exec(DB, 0)
+if err != nil {
+    /* handle error */
+}
+
+// Using conflict constraint
+
+// ...if you use ToSQL
+query, args := sq.InsertInto(u).
+    Columns(u.NAME, u.EMAIL).
+    Values("bob", "bob@email.com").
+    Values("alice", "alice@email.com").
+    OnConflictOnConstraint("users_email_key").
+    DoUpdateSet(
+        u.NAME.Set(sq.Excluded(u.NAME)),
+    ).
+    ToSQL()
+_, err := DB.Exec(query, args...)
+if err != nil {
+    /* handle error */
+}
+
+// ...if you use Exec
+_, err := sq.InsertInto(u).
+    Columns(u.NAME, u.EMAIL).
+    Values("bob", "bob@email.com").
+    Values("alice", "alice@email.com").
+    OnConflictOnConstraint("users_email_key").
+    DoUpdateSet(
+        u.NAME.Set(sq.Excluded(u.NAME)),
+    ).
+    Exec(DB, 0)
+if err != nil {
+    /* handle error */
+}
+
+//-------//
+// MySQL //
+//-------//
+
+// ...if you use ToSQL
+query, args := sq.InsertInto(u).
+    Columns(u.NAME, u.EMAIL).
+    Values("bob", "bob@email.com").
+    Values("alice", "alice@email.com").
+    OnDuplicateKeyUpdate(
+        u.NAME.Set(sq.Values(u.NAME)),
+    ).
+    ToSQL()
+_, err := DB.Exec(query, args...)
+if err != nil {
+    /* handle error */
+}
+
+// ...if you use Exec
+_, _, err := sq.InsertInto(u).
+    Columns(u.NAME, u.EMAIL).
+    Values("bob", "bob@email.com").
+    Values("alice", "alice@email.com").
+    OnDuplicateKeyUpdate(
+        u.NAME.Set(sq.Values(u.NAME)),
+    ).
+    Exec(DB, 0)
+if err != nil {
+    /* handle error */
+}
+</code></pre>
+
+  <div>
+    <h3 class="dib">
+      <a id="insert-from-select" href="#insert-from-select" class="sakura-gray no-underline pilcrow">
+        INSERT from SELECT
+      </a>
+    </h3>
+    &nbsp;&nbsp;<a href="#contents">contents</a>
+  </div>
+  SQL
+  <pre><code class="language-sql">INSERT INTO public.users (name, email)
+SELECT name, email
+FROM public.users
+WHERE users.name = 'bob';
+</code></pre>
+  Go
+  <pre><code class="language-go">u := tables.USERS()
+
+// ...if you use ToSQL
+query, args := sq.InsertInto(u).
+    Columns(u.NAME, u.EMAIL).
+    Select(sq.
+        Select(u.NAME, u.EMAIL).
+        From(u).
+        Where(u.NAME.EqString("bob")),
+    ).
+    ToSQL()
+_, err := DB.Exec(query, args...)
+if err != nil {
+    /* handle error */
+}
+
+// ...if you use Exec
+_, err := sq.InsertInto(u).
+    Columns(u.NAME, u.EMAIL).
+    Select(sq.
+        Select(u.NAME, u.EMAIL).
+        From(u).
+        Where(u.NAME.EqString("bob")),
+    ).
+    Exec(DB, 0)
+if err != nil {
+    /* handle error */
+}
+</code></pre>
+
+  <div>
+    <h3 class="dib">
+      <a id="insert-row" href="#insert-row" class="sakura-gray no-underline pilcrow">
+        Binding values to columns
+      </a>
+    </h3>
+    &nbsp;&nbsp;<a href="#contents">contents</a>
+  </div>
+  <p>
+    Alternatively, you can bind values to columns in an insert statement. This helps if you are inserting a lot of columns and you don't want to accidentally mess up the order or miss a value.
+  </p>
+  <h5>Inserting one entry</h5>
+  <pre><code class="language-sql">-- SQL
+INSERT INTO public.users (name, email)
+VALUES ('bob', 'bob@email.com');
+</code></pre>
+  <pre><code class="language-go">// Go
+u := tables.USERS()
+user := User{Name: "bob", Email: "bob@email.com"}
+
+// ...if you use ToSQL
+query, args := sq.InsertInto(u).
+    Valuesx(func(col *sq.Column) {
+        col.SetString(u.NAME, user.Name)
+        col.SetString(u.EMAIL, user.Email)
+    }).
+    ToSQL()
+_, err := DB.Exec(query, args...)
+if err != nil {
+    /* handle error */
+}
+
+// ...if you use Exec
+_, err := sq.InsertInto(u).
+    Valuesx(func(col *sq.Column) {
+        col.SetString(u.NAME, user.Name)
+        col.SetString(u.EMAIL, user.Email)
+    }).
+    Exec(DB, 0)
+if err != nil {
+    /* handle error */
+}
+</code></pre>
+  <h5>Inserting many entries</h5>
+  <pre><code class="language-sql">-- SQL
+INSERT INTO public.users (name, email)
+VALUES
+    ('bob', 'bob@email.com'),
+    ('alice', 'alice@email.com'),
+    ('eve', 'eve@email.com');
+</code></pre>
+  <pre><code class="language-go">// Go
+u := tables.USERS()
+users := []User{
+    {Name: "bob",   Email: "bob@email.com"},
+    {Name: "alice", Email: "alice@email.com"},
+    {Name: "eve",   Email: "eve@email.com"},
+}
+
+// ...if you use ToSQL
+query, args := sq.InsertInto(u).
+    Valuesx(func(col *sq.Column) {
+        for _, user := range users {
+            col.SetString(u.NAME, user.Name)
+            col.SetString(u.EMAIL, user.Email)
+        }
+    }).
+    ToSQL()
+_, err := DB.Exec(query, args...)
+if err != nil {
+    /* handle error */
+}
+
+// ...if you use Exec
+_, err := sq.InsertInto(u).
+    Valuesx(func(col *sq.Column) {
+        for _, user := range users {
+            col.SetString(u.NAME, user.Name)
+            col.SetString(u.EMAIL, user.Email)
+        }
+    }).
+    Exec(DB, 0)
+if err != nil {
+    /* handle error */
+}
+</code></pre>
+
+  <div>
+    <h3 class="dib">
+      <a id="clause-manipulation" href="#clause-manipulation" class="sakura-gray no-underline pilcrow">
+        Clause manipulation
+      </a>
+    </h3>
+    &nbsp;&nbsp;<a href="#contents">contents</a>
+  </div>
+  Clauses are just struct fields, you can either use method chaining to add clauses or manipulate the struct fields directly.
+  <br>
+  <a id="clauses" href="#clauses" class="sakura-gray no-underline"><b>Clauses:</b></a>
+  <a href="#clause-with">WITH (postgres only)</a>,
+  <a href="#clause-insert-into">INSERT INTO</a>,
+  <a href="#clause-insert-ignore-into">INSERT IGNORE INTO (mysql only)</a>,
+  <a href="#clause-values">VALUES</a>,
+  <a href="#clause-select">SELECT</a>,
+  <a href="#clause-on-conflict">ON CONFLICT (postgres only)</a>,
+  <a href="#clause-on-duplicate-key">ON DUPLICATE KEY UPDATE (mysql only)</a>,
+  <a href="#clause-returning">RETURNING (postgres only)</a>
+  <ul>
+    <li>
+      <div>
+        <a id="clause-with" href="#clause-with" class="sakura-gray no-underline"><b>WITH (postgres only)</b></a>
+        &nbsp;&nbsp;<a href="#clauses">clauses</a>
+      </div>
+      <div>For more information see <a href="/sq/sql-expressions/common-table-expressions.html">Common Table Expressions</a>.
+      <pre><code class="language-go">var q sq.InsertQuery
+
+// Adding
+
+q = q.With(cte1, cte2, cte3)
+// is equivalent to //
+q = q.With(cte1).With(cte2).With(cte3)
+// is equivalent to //
+q.CTEs = []sq.CTE{cte1, cte2, cte3}
+
+// Removing
+
+q.CTEs = nil
+</code></pre>
+    </li>
+    <li>
+      <div>
+        <a id="clause-insert-into" href="#clause-insert-into" class="sakura-gray no-underline"><b>INSERT INTO</b></a>
+        &nbsp;&nbsp;<a href="#clauses">clauses</a>
+      </div>
+      <pre><code class="language-go">var q sq.InsertQuery
+
+// Adding
+
+q = q.InsertInto(table)
+// is equivalent to //
+q.IntoTable = table
+
+// Removing
+
+q.IntoTable = nil
+</code></pre>
+    </li>
+    <li>
+      <div>
+        <a id="clause-insert-ignore-into" href="#clause-insert-ignore-into" class="sakura-gray no-underline"><b>INSERT IGNORE INTO (mysql only)</b></a>
+        &nbsp;&nbsp;<a href="#clauses">clauses</a>
+      </div>
+      <pre><code class="language-go">var q sq.InsertQuery
+
+// Adding
+
+q = q.InsertIgnoreInto(table)
+// is equivalent to //
+q.Ignore = true
+q.IntoTable = table
+
+// Removing
+
+q.Ignore = false
+q.IntoTable = nil
+</code></pre>
+    </li>
+    <li>
+      <div>
+        <a id="clause-values" href="#clause-values" class="sakura-gray no-underline"><b>VALUES</b></a>
+        &nbsp;&nbsp;<a href="#clauses">clauses</a>
+      </div>
+      <pre><code class="language-go">var q sq.InsertQuery
+
+// Adding
+
+q = q.Columns(field1, field2, field3).
+    Values(value1, value2, value3).
+    Values(value4, value5, value6)
+// is equivalent to //
+q = q.InsertRow(field1.Set(value1), field2.Set(value2), field3.Set(value3)).
+  InsertRow(field1.Set(value4), field2.Set(value5), field3.Set(value6))
+// is equivalent to //
+q.InsertColumns = []sq.Field{field1, field2, field3}
+q.RowValues = []sq.RowValue{
+    {value1, value2, value3},
+    {value4, value5, value6},
+}
+
+// Removing
+
+q.InsertColumns = nil
+q.RowValues = nil
+</code></pre>
+    </li>
+    </li>
+    <li>
+      <div>
+        <a id="clause-select" href="#clause-select" class="sakura-gray no-underline"><b>SELECT</b></a>
+        &nbsp;&nbsp;<a href="#clauses">clauses</a>
+      </div>
+      <pre><code class="language-go">var q sq.InsertQuery
+
+// Adding
+
+q = q.Select(sq.Select(field1, field2).From(table).Where(predicate)).
+// is equivalent to //
+subquery := sq.Select(field1, field2).From(table).Where(predicate)
+q.SelectQuery = &amp;subquery
+
+// Removing
+
+q.SelectQuery = nil
+</code></pre>
+    </li>
+    <li>
+      <div>
+        <a id="clause-on-conflict" href="#clause-on-conflict" class="sakura-gray no-underline"><b>ON CONFLICT (postgres only)</b></a>
+        &nbsp;&nbsp;<a href="#clauses">clauses</a>
+      </div>
+      <pre><code class="language-go">var q sq.InsertQuery
+
+// Adding
+
+/* ON CONFLICT DO NOTHING */
+q = q.OnConflict().DoNothing()
+// is equivalent to //
+q.HandleConflict = true
+
+/* ON CONFLICT DO UPDATE */
+q = q.OnConflict(field1, field2).DoUpdateSet(assignment1, assignment2)
+// is equivalent to //
+q.HandleConflict = true
+q.ConflictFields = []sq.Field{field1, field2}
+q.Resolution = []sq.Assignment{assignment1, assignment2}
+
+/* ON CONFLICT DO UPDATE with predicates */
+q = q.OnConflict(field1, field2).
+    Where(predicate1).
+    DoUpdateSet(assignment1, assignment2).
+    Where(predicate2)
+// is equivalent to //
+q.HandleConflict = true
+q.ConflictFields = []sq.Field{field1, field2}
+q.ConflictPredicate.Predicates = []sq.Predicate{predicate1}
+q.Resolution = []sq.Assignment{assignment1, assignment2}
+q.ResolutionPredicate.Predicates = []sq.Predicate{predicate2}
+
+// Removing
+
+q.HandleConflict = false
+/* optional */
+q.ConflictFields = nil
+q.ConflictPredicate.Predicates = nil
+q.Resolution = nil
+q.ResolutionPredicate.Predicates = nil
+</code></pre>
+    </li>
+    <li>
+      <div>
+        <a id="clause-on-duplicate-key" href="#clause-on-duplicate-key" class="sakura-gray no-underline"><b>ON DUPLICATE KEY (mysql only)</b></a>
+        &nbsp;&nbsp;<a href="#clauses">clauses</a>
+      </div>
+      <pre><code class="language-go">var q sq.InsertQuery
+
+// Adding
+
+q = q.OnDuplicateKeyUpdate(assignment1, assignment2)
+// is equivalent to //
+q.Resolution = []sq.Assignment{assignment1, assignment2}
+
+// Removing
+
+q.Resolution = nil
+</code></pre>
+    </li>
+    <li>
+      <div>
+        <a id="clause-returning" href="#clause-returning" class="sakura-gray no-underline"><b>RETURNING (postgres only)</b></a>
+        &nbsp;&nbsp;<a href="#clauses">clauses</a>
+      </div>
+      <pre><code class="language-go">var q sq.InsertQuery
+
+// Adding
+
+q = q.Returning(field1, field2, field3)
+// is equivalent to //
+q = q.Returning(field1).Returning(field2).Returning(field3)
+// is equivalent to //
+q.ReturningFields = []sq.Field{field1, field2, field3}
+
+// Removing
+
+q.ReturningFields = nil
+</code></pre>
+    </li>
+  </ul>
+
+  <div class="flex justify-between">
+    <div><a href="/sq/query-building/select.html">&lt; Prev: SELECT</a></div>
+    <div><a href="/sq#query-building">Up: Query Building</a></div>
+    <div><a href="/sq/query-building/update.html">Next: UPDATE &gt;</a></div>
+  </div>
+  <script src="/prismjs/prism.js"></script>
+</body>
+</html>

@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/sq/favicon/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/sq/favicon/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/sq/favicon/favicon-16x16.png">
+  <link rel="manifest" href="/sq/favicon/site.webmanifest">
+  <link rel="stylesheet" href="/prismjs/atom-dark.css">
+  <link rel="stylesheet" href="/tachyons.css">
+  <link rel="stylesheet" href="/sakura.css">
+  <link rel="stylesheet" href="/sq/style.css">
+  <title>sq - Reusing the same WHERE predicate across SELECT/UPDATE/DELETE</title>
+</head>
+<body>
+  <div class="flex justify-between">
+    <div><a href="/sq/query-building/common-query-builder.html">&lt; Prev: Building off a common query builder &gt;</a></div>
+    <div><a href="/sq#query-building">Up: Query Building</a></div>
+  </div>
+  <h1>Query Building: Reusing the same WHERE predicate across SELECT/UPDATE/DELETE</h1>
+  If you want to use the same WHERE predicate across SELECT, UPDATE or DELETE the most straightforward way would be to build the predicates independently as a <a href="/sq/basics/tables-fields-and-predicates.html#predicate">Predicate</a> slice and pass it into the query as needed.
+  <pre><code class="language-go">u := tables.USERS()
+// Declaring a reusable slice of predicates
+predicates := []sq.Predicate{
+    u.IS_ACTIVE,
+    u.USER_ID.EqInt(userID),
+    u.NAME.ILikeString(name),
+    u.EMAIL.ILikeString(emailProvider),
+}
+// WHERE u.is_active AND u.user_id = :userID
+//  AND u.name ILIKE :name AND u.email ILIKE :emailProvider
+
+// Reusing predicates in a SelectQuery
+sq.Select(u.NAME, u.EMAIL).From(u).Where(predicates...)
+// SELECT u.name, u.email FROM users AS u
+// WHERE u.is_active AND u.user_id = :userID
+//  AND u.name ILIKE :name AND u.email ILIKE :emailProvider
+
+// Reusing predicates in an UpdateQuery
+sq.Update(u).Set(u.PASSWORD.Set("1234")).Where(predicates...)
+// UPDATE users AS u SET password = 1234
+// WHERE u.is_active AND u.user_id = :userID
+//  AND u.name ILIKE :name AND u.email ILIKE :emailProvider
+
+// Reusing predicates in a DeleteQuery
+sq.DeleteFrom(u).Where(predicates...)
+// DELETE FROM users AS u WHERE u.is_active
+// WHERE u.is_active AND u.user_id = :userID
+//  AND u.name ILIKE :name AND u.email ILIKE :emailProvider
+</code></pre>
+  Predicates are implicitly ANDed together. If you need to join predicates using OR, wrap the predicates in <code>sq.Or()</code>.
+  <div class="flex justify-between">
+    <div><a href="/sq/query-building/common-query-builder.html">&lt; Prev: Building off a common query builder &gt;</a></div>
+    <div><a href="/sq#query-building">Up: Query Building</a></div>
+  </div>
+  <script src="/prismjs/prism.js"></script>
+</body>
+</html>

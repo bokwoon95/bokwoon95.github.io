@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/sq/favicon/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/sq/favicon/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/sq/favicon/favicon-16x16.png">
+  <link rel="manifest" href="/sq/favicon/site.webmanifest">
+  <link rel="stylesheet" href="/prismjs/atom-dark.css">
+  <link rel="stylesheet" href="/tachyons.css">
+  <link rel="stylesheet" href="/sakura.css">
+  <link rel="stylesheet" href="/sq/style.css">
+  <title>sq - SELECT</title>
+</head>
+<body>
+  <div class="flex justify-between">
+    <div><a href="/sq#query-building">Up: Query Building</a></div>
+    <div><a href="/sq/query-building/insert.html">Next: INSERT &gt;</a></div>
+  </div>
+  <h1>Query Building: SELECT</h1>
+  <h3>
+    <a id="contents" href="#contents" class="sakura-gray no-underline pilcrow">
+      Contents
+    </a>
+  </h3>
+  <ul>
+    <li><a href="#basic-example">Basic example</a></li>
+    <li><a href="#distinct">SELECT DISTINCT</a></li>
+    <li><a href="#distinct-on">SELECT DISTINCT ON</a>&nbsp;<span class="f4">(Postgres only)</span></li>
+    <li><a href="#exists">SELECT EXISTS</a></li>
+    <li><a href="#clause-manipulation">Clause manipulation</a></li>
+  </ul>
+
+  <div>
+    <h3 class="dib">
+      <a id="basic-example" href="#basic-example" class="sakura-gray no-underline pilcrow">
+        Basic example
+      </a>
+    </h3>
+    &nbsp;&nbsp;<a href="#contents">contents</a>
+  </div>
+  SQL
+  <pre><code class="language-sql">SELECT u.user_id, u.name, u.email
+FROM public.users AS u
+WHERE u.name = 'bob';
+</code></pre>
+  Go
+  <pre><code class="language-go">u := tables.USERS().As("u")
+var user User
+var users []User
+
+// ...if you use ToSQL
+query, args := sq.Select(u.USER_ID, u.NAME, u.EMAIL).
+    From(u).
+    Where(u.USER_ID.EqString("bob")).
+    ToSQL()
+rows, err := DB.Query(query, args...)
+if err != nil {
+    /* handle error */
+}
+defer rows.Close()
+for rows.Next() {
+    err = rows.Scan(&amp;user.UserID, &amp;user.Name, &amp;user.Email)
+    if err != nil {
+        /* handle error */
+    }
+    users = append(users, user)
+}
+
+// ...if you use Selectx (see [Struct Mapping](/sq/basics/struct-mapping.html#select-one-vs-many))
+err := sq.Selectx(func(row *sq.Row) {
+        user.UserID = row.Int(u.USER_ID)
+        user.Name = row.String(u.NAME)
+        user.Email = row.String(u.EMAIL)
+    }, func() {
+        users = append(users, user)
+    }).
+    From(u).
+    Where(u.USER_ID.EqString("bob")).
+    Fetch(DB)
+if err != nil {
+    /* handle error */
+}
+
+// ...if you use SelectRowx (see [Struct Mapping](/sq/basics/struct-mapping.html#select-one-vs-many))
+// SelectRowx only selects one row
+err := sq.SelectRowx(func(row *sq.Row) {
+        user.UserID = row.Int(u.USER_ID)
+        user.Name = row.String(u.NAME)
+        user.Email = row.String(u.EMAIL)
+    }).
+    From(u).
+    Where(u.USER_ID.EqString("bob")).
+    Fetch(DB)
+if err != nil {
+    /* handle error */
+}
+</code></pre>
+
+  <div>
+    <h3 class="dib">
+      <a id="distinct" href="#distinct" class="sakura-gray no-underline pilcrow">
+        SELECT DISTINCT
+      </a>
+    </h3>
+    &nbsp;&nbsp;<a href="#contents">contents</a>
+  </div>
+  SQL
+  <pre><code class="language-sql">SELECT DISTINCT u.user_id, u.name
+FROM public.users AS u
+WHERE u.name = 'bob';
+</code></pre>
+</code></pre>
+  Go
+  <pre><code class="language-go">u := tables.USERS().As("u")
+var user User
+var users []User
+
+// ...if you use ToSQL
+query, args := sq.SelectDistinct(u.USER_ID, u.NAME).
+    From(u).
+    Where(u.USER_ID.EqString("bob")).
+    ToSQL()
+rows, err := DB.Query(query, args...)
+if err != nil {
+    /* handle error */
+}
+defer rows.Close()
+for rows.Next() {
+    err = rows.Scan(&amp;user.UserID, &amp;user.Name)
+    if err != nil {
+        /* handle error */
+    }
+    users = append(users, user)
+}
+
+// ...if you use Selectx (see [Struct Mapping](/sq/basics/struct-mapping.html#select-one-vs-many))
+err := sq.SelectDistinct().
+    Selectx(func(row *sq.Row) {
+        user.UserID = row.Int(u.USER_ID)
+        user.Name = row.String(u.NAME)
+    }, func() {
+        users = append(users, user)
+    }).
+    From(u).
+    Where(u.USER_ID.EqString("string")).
+    Fetch(DB)
+if err != nil {
+    /* handle error */
+}
+
+// ...if you use SelectRowx (see [Struct Mapping](/sq/basics/struct-mapping.html#select-one-vs-many))
+// SelectRowx only selects one row
+err := sq.SelectDistinct().
+    SelectRowx(func(row *sq.Row) {
+        user.UserID = row.Int(u.USER_ID)
+        user.Name = row.String(u.NAME)
+    }).
+    From(u).
+    Where(u.USER_ID.EqString("bob")).
+    Fetch(DB)
+if err != nil {
+    /* handle error */
+}
+</code></pre>
+
+  <div>
+    <h3 class="dib">
+      <a id="distinct-on" href="#distinct-on" class="sakura-gray no-underline pilcrow">
+        SELECT DISTINCT ON
+      </a>
+    </h3>
+    &nbsp;&nbsp;<a href="#contents">contents</a>
+  </div>
+  <p>Note: SELECT DISTINCT ON is a postgres-only feature.</p>
+  SQL
+  <pre><code class="language-sql">SELECT DISTINCT ON (u.email, u.user_id) u.user_id, u.name
+FROM public.users AS u
+WHERE u.name = 'bob';
+</code></pre>
+  Go
+  <pre><code class="language-go">u := tables.USERS().As("u")
+var user User
+var users []User
+
+// ...if you use ToSQL
+query, args := sq.SelectDistinctOn(u.EMAIL, u.USER_ID)(u.USER_ID, u.NAME).
+    From(u).
+    Where(u.USER_ID.EqString("bob")).
+    ToSQL()
+rows, err := DB.Query(query, args...)
+if err != nil {
+    /* handle error */
+}
+defer rows.Close()
+for rows.Next() {
+    err = rows.Scan(&amp;user.UserID, &amp;user.Name)
+    if err != nil {
+        /* handle error */
+    }
+    users = append(users, user)
+}
+
+// ...if you use Selectx (see [Struct Mapping](/sq/basics/struct-mapping.html#select-one-vs-many))
+err := sq.SelectDistinctOn(u.EMAIL, u.USER_ID)().
+    Selectx(func(row *sq.Row) {
+        user.UserID = row.Int(u.USER_ID)
+        user.Name = row.String(u.NAME)
+    }, func() {
+        users = append(users, user)
+    }).
+    From(u).
+    Where(u.USER_ID.EqString("bob")).
+    Fetch(DB)
+if err != nil {
+    /* handle error */
+}
+
+// ...if you use SelectRowx (see [Struct Mapping](/sq/basics/struct-mapping.html#select-one-vs-many))
+// SelectRowx only selects one row
+err := sq.SelectDistinctOn(u.EMAIL, u.USER_ID)().
+    SelectRowx(func(row *sq.Row) {
+        user.UserID = row.Int(u.USER_ID)
+        user.Name = row.String(u.NAME)
+    }).
+    From(u).
+    Where(u.USER_ID.EqString("bob")).
+    Fetch(DB)
+if err != nil {
+    /* handle error */
+}
+</code></pre>
+
+  <div>
+    <h3 class="dib">
+      <a id="exists" href="#exists" class="sakura-gray no-underline pilcrow">
+        SELECT EXISTS
+      </a>
+    </h3>
+    &nbsp;&nbsp;<a href="#contents">contents</a>
+  </div>
+  SQL
+  <pre><code class="language-sql">SELECT EXISTS (
+    SELECT 1
+    FROM public.users AS u
+    WHERE u.name = 'bob'
+);
+</code></pre>
+  Go
+  <pre><code class="language-go">u := tables.USERS().As("u")
+var exists bool
+
+// ...if you use ToSQL
+query, args := sq.Select(sq.Exists(
+    sq.SelectOne().From(u).Where(u.USER_ID.EqString("bob")),
+)).ToSQL()
+err := DB.Query(query, args...).Scan(&amp;exists)
+if err != nil {
+    /* handle error */
+}
+
+// ...if you use SelectRowx (see [Struct Mapping](/sq/basics/struct-mapping.html#select-one-vs-many))
+err := sq.SelectRowx(func(row *sq.Row) {
+    exists = row.Bool(sq.Exists(
+        sq.SelectOne().From(u).Where(u.USER_ID.EqString("bob")),
+    ))
+}).Fetch(DB)
+if err != nil {
+    /* handle error */
+}
+</code></pre>
+
+  <div>
+    <h3 class="dib">
+      <a id="clause-manipulation" href="#clause-manipulation" class="sakura-gray no-underline pilcrow">
+        Clause manipulation
+      </a>
+    </h3>
+    &nbsp;&nbsp;<a href="#contents">contents</a>
+  </div>
+  Clauses are just struct fields, you can either use method chaining to add clauses or manipulate the struct fields directly.
+  <br>
+  <a id="clauses" href="#clauses" class="sakura-gray no-underline"><b>Clauses:</b></a>
+  <a href="#clause-with">WITH</a>,
+  <a href="#clause-select">SELECT</a>,
+  <a href="#clause-from">FROM</a>,
+  <a href="#clause-join">JOIN</a>,
+  <a href="#clause-where">WHERE</a>,
+  <a href="#clause-group-by">GROUP BY</a>,
+  <a href="#clause-having">HAVING</a>,
+  <a href="#clause-window">WINDOW</a>,
+  <a href="#clause-order-by">ORDER BY</a>,
+  <a href="#clause-limit">LIMIT</a>,
+  <a href="#clause-offset">OFFSET</a>
+  <ul>
+    <li>
+      <div>
+        <a id="clause-with" href="#clause-with" class="sakura-gray no-underline"><b>WITH</b></a>
+        &nbsp;&nbsp;<a href="#clauses">clauses</a>
+      </div>
+      <div>For more information see <a href="/sq/sql-expressions/common-table-expressions.html">Common Table Expressions</a>.</div>
+      <pre><code class="language-go">var q sq.SelectQuery
+
+// Adding
+
+q = q.With(cte1, cte2, cte3)
+// is equivalent to //
+q = q.With(cte1).With(cte2).With(cte3)
+// is equivalent to //
+q.CTEs = []sq.CTE{cte1, cte2, cte3}
+
+// Removing
+
+q.CTEs = nil
+</code></pre>
+    </li>
+    <li>
+      <div>
+        <a id="clause-select" href="#clause-select" class="sakura-gray no-underline"><b>SELECT</b></a>
+        &nbsp;&nbsp;<a href="#clauses">clauses</a>
+      </div>
+      <pre><code class="language-go">var q sq.SelectQuery
+
+// Adding
+
+q = q.Select(field1, field2, field3)
+// is equivalent to //
+q = q.Select(field1).Select(field2).Select(field3)
+// is equivalent to //
+q.SelectFields = []sq.Field{field1, field2, field3}
+
+// Removing
+
+q.SelectFields = nil
+</code></pre>
+    </li>
+    <li>
+      <div>
+        <a id="clause-from" href="#clause-from" class="sakura-gray no-underline"><b>FROM</b></a>
+        &nbsp;&nbsp;<a href="#clauses">clauses</a>
+      </div>
+      <pre><code class="language-go">var q sq.SelectQuery
+
+// Adding
+
+q = q.From(table)
+// is equivalent to //
+q.FromTable = table
+
+// Removing
+
+q.FromTable = nil
+</code></pre>
+    </li>
+    <li>
+      <div>
+        <a id="clause-join" href="#clause-join" class="sakura-gray no-underline"><b>JOIN</b></a>
+        &nbsp;&nbsp;<a href="#clauses">clauses</a>
+      </div>
+      <pre><code class="language-go">var q sq.SelectQuery
+
+// Adding
+
+q = q.Join(table1, predicate1).
+    LeftJoin(table2, predicate2).
+    FullJoin(table3, predicate3)
+// is equivalent to //
+q.JoinTables = []sq.JoinTable{
+    sq.Join(table1, predicate1),
+    sq.LeftJoin(table2, predicate2),
+    sq.FullJoin(table3, predicate3),
+}
+
+// Removing
+
+q.JoinTables = nil
+</code></pre>
+    </li>
+    <li>
+      <div>
+        <a id="clause-where" href="#clause-where" class="sakura-gray no-underline"><b>WHERE</b></a>
+        &nbsp;&nbsp;<a href="#clauses">clauses</a>
+      </div>
+      <pre><code class="language-go">var q sq.SelectQuery
+
+// Adding
+
+q = q.Where(predicate1, predicate2, predicate3)
+// is equivalent to //
+q = q.Where(predicate1).Where(predicate2).Where(predicate3)
+// is equivalent to //
+q.WherePredicate.Predicates = []sq.Predicate{
+    predicate1,
+    predicate2,
+    predicate3,
+}
+
+// Removing
+
+q.WherePredicate.Predicates = nil
+</code></pre>
+    </li>
+    <li>
+      <div>
+        <a id="clause-group-by" href="#clause-group-by" class="sakura-gray no-underline"><b>GROUP BY</b></a>
+        &nbsp;&nbsp;<a href="#clauses">clauses</a>
+      </div>
+      <pre><code class="language-go">var q sq.SelectQuery
+
+// Adding
+
+q = q.GroupBy(field1, field2, field3)
+// is equivalent to //
+q = q.GroupBy(field1).GroupBy(field2).GroupBy(field3)
+// is equivalent to //
+q.GroupByFields = []sq.Field{field1, field2, field3}
+
+// Removing
+
+q.GroupByFields = nil
+</code></pre>
+    </li>
+    <li>
+      <div>
+        <a id="clause-having" href="#clause-having" class="sakura-gray no-underline"><b>HAVING</b></a>
+        &nbsp;&nbsp;<a href="#clauses">clauses</a>
+      </div>
+      <pre><code class="language-go">var q sq.SelectQuery
+
+// Adding
+
+q = q.Having(predicate1, predicate2, predicate3)
+// is equivalent to //
+q = q.Having(predicate1).Having(predicate2).Having(predicate3)
+// is equivalent to //
+q.HavingPredicate.Predicates = []sq.Predicate{
+    predicate1,
+    predicate2,
+    predicate3,
+}
+
+// Removing
+
+q.HavingPredicate.Predicates = nil
+</code></pre>
+    </li>
+    <li>
+      <div>
+        <a id="clause-window" href="#clause-window" class="sakura-gray no-underline"><b>WINDOW</b></a>
+        &nbsp;&nbsp;<a href="#clauses">clauses</a>
+      </div>
+      <pre><code class="language-go">var q sq.SelectQuery
+
+// Adding
+
+q = q.Window(window1, window2, window3)
+// is equivalent to //
+q = q.Window(window1).Window(window2).Window(window3)
+// is equivalent to //
+q.Windows = []sq.Window{window1 window2, window3}
+
+// Removing
+
+q.Windows = nil
+</code></pre>
+    </li>
+    <li>
+      <div>
+        <a id="clause-order-by" href="#clause-order-by" class="sakura-gray no-underline"><b>ORDER BY</b></a>
+        &nbsp;&nbsp;<a href="#clauses">clauses</a>
+      </div>
+      <pre><code class="language-go">var q sq.SelectQuery
+
+// Adding
+
+q = q.OrderBy(field1, field2, field3)
+// is equivalent to //
+q = q.OrderBy(field1).OrderBy(field2).OrderBy(field3)
+// is equivalent to //
+q.OrderByFields = []sq.Field{field1, field2, field3}
+
+// Removing
+
+q.OrderByFields = nil
+</code></pre>
+    </li>
+    <li>
+      <div>
+        <a id="clause-limit" href="#clause-limit" class="sakura-gray no-underline"><b>LIMIT</b></a>
+        &nbsp;&nbsp;<a href="#clauses">clauses</a>
+      </div>
+      <pre><code class="language-go">var q sq.SelectQuery
+
+// Adding
+
+q = q.Limit(10)
+// is equivalent to //
+limit := int64(10)
+q.LimitValue = &amp;limit
+
+// Removing
+
+q.LimitValue = nil
+</code></pre>
+    </li>
+    <li>
+      <div>
+        <a id="clause-offset" href="#clause-offset" class="sakura-gray no-underline"><b>OFFSET</b></a>
+        &nbsp;&nbsp;<a href="#clauses">clauses</a>
+      </div>
+      <pre><code class="language-go">var q sq.SelectQuery
+
+// Adding
+
+q = q.Offset(10)
+// is equivalent to //
+offset := int64(10)
+q.OffsetValue = &amp;offset
+
+// Removing
+
+q.OffsetValue = nil
+</code></pre>
+    </li>
+  </ul>
+
+  <div class="flex justify-between">
+    <div><a href="/sq#query-building">Up: Query Building</a></div>
+    <div><a href="/sq/query-building/insert.html">Next: INSERT &gt;</a></div>
+  </div>
+  <script src="/prismjs/prism.js"></script>
+</body>
+</html>

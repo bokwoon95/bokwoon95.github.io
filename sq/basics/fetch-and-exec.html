@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/sq/favicon/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/sq/favicon/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/sq/favicon/favicon-16x16.png">
+  <link rel="manifest" href="/sq/favicon/site.webmanifest">
+  <link rel="stylesheet" href="/prismjs/atom-dark.css">
+  <link rel="stylesheet" href="/tachyons.css">
+  <link rel="stylesheet" href="/sakura.css">
+  <link rel="stylesheet" href="/sq/style.css">
+  <title>sq - Fetch and Exec</title>
+</head>
+<body>
+  <div class="flex justify-between">
+    <div><a href="/sq/basics/struct-mapping.html">&lt; Prev: Struct mapping</a></div>
+    <div><a href="/sq#basics">Up: Basics</a></div>
+    <div><a href="/sq/basics/logging.html">Next: Logging &gt;</a></div>
+  </div>
+  <h1>Basics: Fetch and Exec</h1>
+  <h3>
+    <a id="contents" href="#contents" class="sakura-gray no-underline pilcrow">
+      Contents
+    </a>
+  </h3>
+  <ul>
+    <li><a href="#overview">Overview</a></li>
+    <li><a href="#exec-flag">ExecFlag</a></li>
+    <li><a href="#rows-afected">Getting the number of rows affected by INSERT, UPDATE or DELETE</a></li>
+  </ul>
+
+  <div>
+    <h3 class="dib">
+      <a id="overview" href="#overview" class="sakura-gray no-underline pilcrow">
+        Overview
+      </a>
+    </h3>
+    &nbsp;&nbsp;<a href="#contents">contents</a>
+  </div>
+  If you look at the <a href="/sq/basics/tables-fields-and-predicates.html#query-builder-reference">Query Builder Reference</a>, you will notice that the query builders possess some combination of the <code>Fetch</code> and <code>Exec</code> methods.
+  <table>
+    <caption><h5><u>Postgres</u></h5></caption>
+    <thead>
+      <tr>
+        <th>Query</th>
+        <th>Fetch</th>
+        <th>Exec</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>SELECT</td>
+        <td>✓</td>
+        <td>✓</td>
+      </tr>
+      <tr>
+        <td>INSERT</td>
+        <td>✓</td>
+        <td>✓</td>
+      </tr>
+      <tr>
+        <td>UPDATE</td>
+        <td>✓</td>
+        <td>✓</td>
+      </tr>
+      <tr>
+        <td>DELETE</td>
+        <td>✓</td>
+        <td>✓</td>
+      </tr>
+    </tbody>
+  </table>
+  <p></p>
+  <table>
+    <caption><h5><u>MySQL</u></h5></caption>
+    <thead>
+      <tr>
+        <th>Query</th>
+        <th>Fetch</th>
+        <th>Exec</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>SELECT</td>
+        <td>✓</td>
+        <td></td>
+      </tr>
+      <tr>
+        <td>INSERT</td>
+        <td></td>
+        <td>✓</td>
+      </tr>
+      <tr>
+        <td>UPDATE</td>
+        <td></td>
+        <td>✓</td>
+      </tr>
+      <tr>
+        <td>DELETE</td>
+        <td></td>
+        <td>✓</td>
+      </tr>
+    </tbody>
+  </table>
+  <p>
+  </p>
+  <h6>These are what they do</h6>
+  <ul>
+    <li>
+      <b>Fetch:</b> Runs the query together with the mapper and accumulator functions (see <a href="/sq/basics/struct-mapping.html">Struct Mapping</a>).
+      It is used for fetching results.
+      Results can be fetched from Postgres' INSERT, UPDATE and DELETE queries due to the <a href="/sq/basics/struct-mapping.html#overview">RETURNING clause</a>.
+    </li>
+    <li>
+      <b>Exec:</b> Runs the query, ignoring the mapper and accumulator functions.
+      It is semantically similar to <a href="https://golang.org/pkg/database/sql/#DB.Exec">database/sql's <code>Exec()</code></a>.
+      Exec can optionally return the number of rows affected, but the <a href="#exec-flag"><code>Erowsaffected</code> flag</a> must be passed to it.
+      Otherwise, the rowsAffected returned will always be 0.
+      <p>Postgres' SELECT query can run Exec because it will still report the number of rowsAffected by the SELECT. <a href="https://github.com/go-sql-driver/mysql">go-mysql-driver</a> does not seem to do this.</p>
+    </li>
+  </ul>
+
+  <div>
+    <h3 class="dib">
+      <a id="exec-flag" href="#exec-flag" class="sakura-gray no-underline pilcrow">ExecFlag</a>
+    </h3>
+    &nbsp;&nbsp;<a href="#contents">contents</a>
+  </div>
+  <code>Exec</code> takes in an ExecFlag. Here are the possible values:
+  <pre><code class="language-go">// Postgres
+const (
+    Erowsaffected ExecFlag = 1 &lt;&lt; iota
+)
+
+// MySQL
+const (
+    ElastInsertID ExecFlag = 1 &lt;&lt; iota // ElastInsertID only applies to INSERT
+    Erowsaffected ExecFlag
+)
+</code></pre>
+  <p>
+    The ExecFlag dictates whether <code>Exec</code> will compute the <a href="https://golang.org/pkg/database/sql/#Result">lastInsertID or rowsAffected</a>.
+    If not specified, the value of the lastInsertID or rowsAffected returned will always be 0.
+  </p>
+  <p>
+    Only MySQL has the <code>ElastInsertID</code> flag, and it is only applicable to the <a href="/sq/basics/tables-fields-and-predicates.html#mysql-insert">InsertQuery</a>.
+    For Postgres, use <a href="/sq/query-building/insert.html#last-insert-id"><code>Returningx/ReturningRowx</code> with <code>Fetch</code></a> to get the lastInsertID.
+  </p>
+
+  <div>
+    <h3 class="dib">
+      <a id="rows-affected" href="#rows-affected" class="sakura-gray no-underline pilcrow">
+        Getting the number of rows affected by INSERT, UPDATE or DELETE
+      </a>
+    </h3>
+    &nbsp;&nbsp;<a href="#contents">contents</a>
+  </div>
+  You need to pass in the <a href="#exec-flag"><code>Erowsaffected</code> ExecFlag</a> to Exec.
+  <pre><code class="language-go">// Postgres
+rowsAffected, err := InsertInto(tbl).
+    Column(tbl.A, tbl.B).
+    Values("a", "b").
+    Exec(DB, Erowsaffected)
+//           ^ Erowsaffected must be used otherwise
+//             rowsAffected will always be 0
+
+// MySQL
+lastInsertID, rowsAffected, err := InsertInto(tbl).
+    Column(tbl.A, tbl.B).
+    Values("a", "b").
+    Exec(DB, ElastInsertID|Erowsaffected)
+//           ^ ElastInsertID and Erowsaffected must be used otherwise
+//             lastInsertID and rowsAffected will always be 0
+</code></pre>
+
+  <h6>
+    <a id="fetch-on-insert-delete-update" href="#fetch-on-insert-delete-update" class="sakura-gray no-underline pilcrow">Why would I want to call Fetch on INSERT, UPDATE or DELETE?</a>
+    <span>(postgres only)</span>
+  </h6>
+  The RETURNING clause effectively turns INSERT, UPDATE and DELETE into pseudo-SELECTs that return the rows that were affected.
+  It could be advantageous to collect a slice of structs containing the rows that you just inserted, updated or deleted.
+  In particular, this is the only way for Postgres to return an inserted row's auto incremented id.
+  It has an advantage over how MySQL does it, because you can INSERT multiple rows and return the ID of every inserted row. MySQL only has the ability to return the ID of the last inserted row.
+
+  <script src="/prismjs/prism.js"></script>
+</body>
+</html>

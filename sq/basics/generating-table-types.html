@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/sq/favicon/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/sq/favicon/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/sq/favicon/favicon-16x16.png">
+  <link rel="manifest" href="/sq/favicon/site.webmanifest">
+  <link rel="stylesheet" href="/prismjs/atom-dark.css">
+  <link rel="stylesheet" href="/tachyons.css">
+  <link rel="stylesheet" href="/sakura.css">
+  <link rel="stylesheet" href="/sq/style.css">
+  <title>sq - Generating table types</title>
+</head>
+<body>
+  <div class="flex justify-between">
+    <div><a href="/sq#basics">Up: Basics</a></div>
+    <div><a href="/sq/basics/tables-fields-and-predicates.html">Next: Tables, fields and predicates &gt;</a></div>
+  </div>
+  <h1>Basics: Generating table types</h1>
+  Before you can use sq, you must generate your table definitions from your database. First, download your dialect-specific code generator:
+  <pre><code class="language-shell"># Postgres
+go get -u github.com/bokwoon95/go-structured-query/cmd/sqgen-postgres
+
+# MySQL
+go get -u github.com/bokwoon95/go-structured-query/cmd/sqgen-mysql
+</code></pre>
+  Generate tables from your database (replace [name], [pass], [dbname] as well as your database port number accordingly):
+  <pre><code class="language-shell"># for more options, check out --help
+
+# Postgres
+sqgen-postgres tables --database 'postgres://[name]:[pass]@localhost:5432/[dbname]?sslmode=disable'
+
+# MySQL
+sqgen-postgres tables --database '[name]:[pass]@tcp(127.0.0.1:3306)/[dbname]' --schema [dbname]
+</code></pre>
+  The above example will by default generate a directory called <code>tables</code> in the current directory containing a Go package called <code>tables</code> (and a file <code>tables.go</code>), which contains all your table definitions. If you need to change any of these defaults, check out the --help option.
+
+  <p></p>
+  <p></p>
+  Once you have generated your table definitions, check out the Basic Examples in the <a href="/sq/index.html#query-building">Query Building</a> section to see how you can use those definitions.
+  <p></p>
+
+  <div class="flex justify-between">
+    <div><a href="/sq#basics">Up: Basics</a></div>
+    <div><a href="/sq/basics/tables-fields-and-predicates.html">Next: Tables, fields and predicates &gt;</a></div>
+  </div>
+  <p></p>
+  <script src="/prismjs/prism.js"></script>
+</body>
+</html>

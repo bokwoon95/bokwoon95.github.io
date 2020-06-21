@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/sq/favicon/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/sq/favicon/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/sq/favicon/favicon-16x16.png">
+  <link rel="manifest" href="/sq/favicon/site.webmanifest">
+  <link rel="stylesheet" href="/prismjs/atom-dark.css">
+  <link rel="stylesheet" href="/tachyons.css">
+  <link rel="stylesheet" href="/sakura.css">
+  <link rel="stylesheet" href="/sq/style.css">
+  <title>sq - calling PL/pgSQL functions</title>
+</head>
+<body>
+  <div class="flex justify-between">
+    <div><a href="/sq/sql-expressions/case.html">&lt; Prev: CASE</a></div>
+    <div><a href="/sq#sql-expressions">Up: SQL Expressions</a></div>
+  </div>
+  <h1>SQL Expressions: calling PL/pgSQL functions</h1>
+  <h3>
+    <a id="contents" href="#contents" class="sakura-gray no-underline pilcrow">
+      Contents
+    </a>
+  </h3>
+  <ul>
+    <li><a href="#overview">Overview</a></li>
+    <li><a href="#code-generation">Code generation</a></li>
+    <li><a href="#using-the-function">Using the function</a></li>
+  </ul>
+
+  <div>
+    <h3 class="dib">
+      <a id="overview" href="#overview" class="sakura-gray no-underline pilcrow">
+        Overview
+      </a>
+    </h3>
+    &nbsp;&nbsp;<a href="#contents">contents</a>
+  </div>
+  There is support for generating type safe definitions from your PL/pgSQL functions, with some caveats:
+  <ul class="mb0">
+    <li>IN/OUT arguments are not supported</li>
+    <li>User-defined types in Postgres are not supported</li>
+    <li>VARIADIC arguments are not supported</li>
+  </ul>
+  I am already using this feature, but should be considered a WIP. Feedback on it is very much welcome.
+
+  <div>
+    <h3 class="dib">
+      <a id="code-generation" href="#code-generation" class="sakura-gray no-underline pilcrow">
+        Code generation
+      </a>
+    </h3>
+    &nbsp;&nbsp;<a href="#contents">contents</a>
+  </div>
+  The first step would be to generate the function definitions. Make sure you have installed the sqgen-postgres command line tool.
+  <pre><code class="language-shell">$ go get github.com/bokwoon95/go-structured-query/cmd/sqgen-postgres
+</code></pre>
+  Run sqgen-postgres functions as shown below (replace the $variables accordingly).
+  sqgen will dump a <code>functions.go</code> into a tables folder in the current working directory.
+  If you need any more customization read the flags at <code>sqgen-postgres functions --help</code>.
+  <pre><code class="language-shell">$ sqgen-postgres functions --database 'postgres://$username:$password@localhost:$port/$database?sslmode=disable'
+</code></pre>
+  Given an simple function like the following
+  <pre><code class="language-plsql">CREATE FUNCTION simple_func(str TEXT, num INT, b BOOL, tz TIMESTAMPTZ)
+RETURNS TABLE (out_str TEXT, out_num INT, out_b BOOL, out_tz TIMESTAMPTZ) AS $$
+BEGIN
+    RETURN QUERY SELECT str, num, b, tz;
+END $$ LANGUAGE plpgsql;
+</code></pre>
+  The following definitions will be generated
+  <pre><code class="language-go">type FUNCTION_SIMPLE_FUNC struct {
+    *sq.FunctionInfo
+    OUT_STR sq.StringField
+    OUT_NUM sq.NumberField
+    OUT_B   sq.BooleanField
+    OUT_TZ  sq.TimeField
+}
+
+func SIMPLE_FUNC(
+    str string,
+    num int,
+    b bool,
+    tz time.Time,
+) FUNCTION_SIMPLE_FUNC {
+    return SIMPLE_FUNC_(str, num, b, tz)
+}
+
+func SIMPLE_FUNC_(
+    str interface{},
+    num interface{},
+    b interface{},
+    tz interface{},
+) FUNCTION_SIMPLE_FUNC {
+    f := FUNCTION_SIMPLE_FUNC{
+        Schema:    "public",
+        Name:      "simple_func",
+        Arguments: []interface{}{str, num, b, tz},
+    }
+    f.OUT_STR = sq.NewStringField("out_str", f.FunctionInfo)
+    f.OUT_NUM = sq.NewNumberField("out_num", f.FunctionInfo)
+    f.OUT_B = sq.NewBooleanField("out_b", f.FunctionInfo)
+    f.OUT_TZ = sq.NewTimeField("out_tz", f.FunctionInfo)
+    return f
+}
+</code></pre>
+  Two versions of the same function are generated: <code>SIMPLE_FUNC</code> and <code>SIMPLE_FUNC_</code>.
+  Usually you will use the more strongly-typed <code>SIMPLE_FUNC</code>, but the loosely-typed <code>SIMPLE_FUNC_</code> exists for you to use it in other contexts: for example, passing in a StringField or NumberField in place of a string or int as an argument.
+  The function is essentially a struct and its member fields are the outputs of the function, which allows you to treat the function call like any other <a href="/sq/basics/tables-fields-and-predicates.html#table">Table</a> (or <a href="/sq/basics/tables-fields-and-predicates.html#field">Field</a>).
+
+  <div>
+    <h3 class="dib">
+      <a id="using-the-function" href="#using-the-function" class="sakura-gray no-underline pilcrow">
+        Using the function
+      </a>
+    </h3>
+    &nbsp;&nbsp;<a href="#contents">contents</a>
+  </div>
+  If you just want to call a function for its side effects, you can invoke the function using SELECT.
+  <pre><code class="language-go">// SELECT my_function(1, 'abc');
+_, err := sq.Select(tables.MY_FUNCTION(1, "abc")).Exec(DB, 0)
+</code></pre>
+  If you want to scan the results of the function back into Go, you can use treat the function call like a <a href="/sq/basics/tables-fields-and-predicates.html#table">Table</a> and use <a href="/sq/basics/struct-mapping.html">Struct Mapping</a> to map the results.
+  <pre><code class="language-go">var outStr string
+var outNum int
+var outB bool
+var outTz time.Time
+
+// SELECT out_str, out_num, out_b, out_tz
+// FROM simple_func('abc', 123, true, NOW());
+f := tables.SIMPLE_FUNC("abc", 123, true, time.Now())
+err := sq.From(f).
+    SelectRowx(func(row *sq.Row) {
+        outStr = row.String(f.OUT_STR)
+        outNum = row.Int(f.OUT_NUM)
+        outB = row.Bool(f.OUT_B)
+        outTime = row.Time(f.OUT_TZ)
+    }).
+    Fetch(DB)
+</code></pre>
+
+  <div class="flex justify-between">
+    <div><a href="/sq/sql-expressions/case.html">&lt; Prev: CASE</a></div>
+    <div><a href="/sq#sql-expressions">Up: SQL Expressions</a></div>
+  </div>
+  <script src="/prismjs/prism.js"></script>
+</body>
+</html>

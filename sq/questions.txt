@@ -1,0 +1,117 @@
+https://github.com/upper/db/issues/567
+
+SELECT count(DISTINCT "archive"."uid" )
+  FROM "argo_archived_workflows" AS "archive" JOIN "argo_archived_workflows_labels" AS "archive_labels" ON(archive.uid= archive_labels.uid)
+ WHERE("archive" . "namespace"= "ns")
+
+a, l := tables.ARGO_ARCHIVED_WORKFLOWS().As("archive"), tables.ARGO_ARCHIVED_WORKFLOWS_LABELS().As("labels")
+sq.Select(sq.Fieldf("count(DISTINCT ?)", a.UID)).
+    From(a).
+    Join(l, a.UID.Eq(l.UID)).
+    Where(a.NAMESPACE.EqString("ns"))
+
+---
+
+How do I unset a field/predicate?
+
+All fields in the query builders are made public for this reason. If you want to unset a field, you can directly remove it from the struct itself.
+
+---
+
+Fluent interface give 2 much copy, can I make it modify the existing struct instead?
+
+A: As usual, make sure to profile your application first to see if the immutable fluent API is causing a noticeable slowdown. However, if you wish to contruct your query builder without any unnecessary copying you can skip the fluent API and instantiate the struct fields directly.
+
+---
+
+https://dba.stackexchange.com/a/257091
+
+-- Parameters
+SET @folderId:=2;
+SET @user_ids:='11,14';
+SET @access_mask:=2;
+-- Insert/update access masks for single users
+INSERT INTO FOLDER_ACCESS (FOLDER_ID, USER_ID, ACCESS)
+WITH RECURSIVE
+folder_ids AS ( SELECT f.id
+                FROM FOLDER AS f
+                WHERE id = @folderId
+              UNION ALL
+                SELECT f.id
+                FROM folder_ids
+                JOIN FOLDER AS f ON f.parent_id = folder_ids.id ),
+user_ids AS ( SELECT SUBSTRING_INDEX(@user_ids, ',', 1) user_id,
+                     CONCAT(SUBSTRING(@user_ids FROM 1 + LOCATE(',', @user_ids)), ',') slack
+            UNION ALL
+              SELECT SUBSTRING_INDEX(slack, ',', 1),
+                     SUBSTRING(slack FROM 2 + LENGTH(SUBSTRING_INDEX(slack, ',', 1)))
+              FROM user_ids
+              WHERE slack )
+SELECT folder_ids.id, user_ids.user_id, @access_mask
+FROM folder_ids, user_ids
+ON DUPLICATE KEY
+UPDATE ACCESS = @access_mask;
+
+var err error
+_, err = tx.Exec("SET @folderId := 2")
+_, err = tx.Exec("SET @user_ids := '11,14'")
+_, err = tx.Exec("SET @access_mask := 2")
+
+f := tables.FOLDER()
+folder_ids := sq.NewRecursiveCTE("folder_ids", sq.Queryf(`
+    SELECT ? FROM ? WHERE ? = @folderId
+    UNION ALL
+    SELECT ? FROM folder_ids JOIN ? ON ? = folder_ids.id
+`, f.ID, f, f.ID, f.ID, f, f.ID))
+user_ids := sq.NewRecursiveCTE("user_ids", sq.Queryf(`
+    SELECT
+        SUBSTRING_INDEX(@user_ids, ',' , 1) user_id,
+        CONCAT(SUBSTRING(@user_ids FROM1 + LOCATE(',', @user_ids)), ',') slack
+    UNION ALL
+    SELECT
+        SUBSTRING_INDEX(slack, ',', 1),
+        SUBSTRING(slack FROM 2 + LENGTH(SUBSTRING_INDEX(slack, ',', 1)))
+    FROM
+        user_ids
+    WHERE
+        slack
+`))
+fa := tables.FOLDER_ACCESS()
+_, _, err := sq.
+    With(folder_ids, user_ids).
+    InsertInto(fa).
+    Columns(fa.FOLDER_ID, fa.USER_ID, fa.ACCESS).
+    Select(sq.
+        Select(
+            folder_ids.Get("id"),
+            user_ids.Get("user_id"),
+            sq.Fieldf("@access_mask"),
+        ).
+        From(
+            folder_ids,
+            user_ids,
+        )
+    ).
+    OnDuplicateKey().Update(
+        fa.ACCESS.Set(sq.Fieldf("@access_mask")),
+    ).
+    Exec(DB, 0)
+
+---
+
+I have a termination condition where if I reach it, I don't want to iterate the database rows anymore and want to just return. Can I do it?
+
+Yes you can. Simply raise a panic with the package constant sq.ExitPeacefully.
+
+SelectRowx(func(row *sq.Row) {
+    /* ... */
+}, func() {
+    count++
+    if count > 5 {
+        panic(sq.ExitPeacefully)
+    }
+})
+
+All panics are recovered from and returned as errors, unless you use the special constant sq.ExitPeacefully. 
+
+You can argue that it's bad form to use panics as flow control, but I believe that exiting early from a row iteration is an exceptional case. Most of the time you'd just loop over all the rows. So to optimize for the common use case I decided not to have accumulator function signature return an error to signal cancellation (otherwise you would have to write 'return nil' a lot).

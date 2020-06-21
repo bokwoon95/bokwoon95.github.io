@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/sq/favicon/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/sq/favicon/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/sq/favicon/favicon-16x16.png">
+  <link rel="manifest" href="/sq/favicon/site.webmanifest">
+  <link rel="stylesheet" href="/prismjs/atom-dark.css">
+  <link rel="stylesheet" href="/tachyons.css">
+  <link rel="stylesheet" href="/sakura.css">
+  <link rel="stylesheet" href="/sq/style.css">
+  <title>sq - UNION, INTERSECT, EXCEPT</title>
+</head>
+<body>
+  <div class="flex justify-between">
+    <div><a href="/sq/sql-expressions/in.html">&lt; Prev: IN</a></div>
+    <div><a href="/sq#sql-expressions">Up: SQL Expressions</a></div>
+    <div><a href="/sq/sql-expressions/case.html">Next: CASE &gt;</a></div>
+  </div>
+  <h1>SQL Expressions: UNION, INTERSECT, EXCEPT</h1>
+  <a href="/sq/basics/tables-fields-and-predicates.html#query">Queries</a> can be chained together with <code>sq.Union/sq.Intersect/sq.Except</code> the same way <a href="/sq/basics/tables-fields-and-predicates.html#predicate">predicates</a> can be chained with <code>sq.And/sq.Or</code>.
+  To SELECT from a UNION-ed query, convert it into a <a href="/sq/sql-expressions/subqueries.html">subquery</a> or <a href="/sq/sql-expressions/common-table-expressions.html">Common Table Expression (CTE)</a> and you will be able to use it like any other table.
+    <h5>Subquery</h5>
+    <pre><code class="language-sql">-- SQL: UNION into a Subquery
+SELECT subquery.name FROM (
+    SELECT u.name FROM public.users AS u WHERE u.name = u.email
+    UNION
+    SELECT u.name FROM public.users AS u WHERE u.email IS NOT NULL
+    UNION
+    SELECT 'aaa'
+) AS subquery;
+</code></pre>
+    <pre><code class="language-go">// Go: UNION into a Subquery
+u := tables.USERS().As("u")
+subquery := sq.
+    Union(
+        sq.Select(u.NAME).From(u).Where(u.Name.Eq(u.EMAIL)),
+        sq.Select(u.NAME).From(u).Where(u.Name.IsNotNull()),
+        sq.Select(sq.String("aaaa")),
+    ).
+    Subquery("subquery")
+var name string
+var names []string
+
+// ...if you use ToSQL
+query, args := sq.Select(subquery["name"]).From(subquery).ToSQL()
+rows, err := DB.Query(query, args...)
+if err != nil {
+    /* handle error */
+}
+defer rows.Close()
+for rows.Next() {
+    err = rows.Scan(&amp;name)
+    if err != nil {
+        /* handle error */
+    }
+    names = append(names, name)
+}
+
+// ...if you use Selectx (see [Struct Mapping](/sq/basics/struct-mapping.html))
+err := sq.
+    Selectx(func(row *sq.Row) {
+        row.ScanInto(&amp;name, subquery["name"])
+    }, func() {
+        names = append(names, name)
+    }).
+    From(subquery)
+if err != nil {
+    /* handle error */
+}
+</code></pre>
+    <h5>CTE</h5>
+    <pre><code class="language-sql">-- SQL: UNION into a CTE
+WITH cte AS (
+    SELECT u.name FROM public.users AS u WHERE u.name = u.email
+    UNION
+    SELECT u.name FROM public.users AS u WHERE u.email IS NOT NULL
+    UNION
+    SELECT 'aaa'
+)
+SELECT cte.name FROM cte;
+</code></pre>
+    <pre><code class="language-go">// Go: UNION into a CTE
+u := tables.USERS().As("u")
+subquery := sq.
+    Union(
+        sq.Select(u.NAME).From(u).Where(u.Name.Eq(u.EMAIL)),
+        sq.Select(u.NAME).From(u).Where(u.Name.IsNotNull()),
+        sq.Select(sq.String("aaaa")),
+    ).
+    CTE("cte")
+var name string
+var names []string
+
+// ...if you use ToSQL
+query, args := sq.With(cte).Select(cte["name"]).From(cte).ToSQL()
+rows, err := DB.Query(query, args...)
+if err != nil {
+    /* handle error */
+}
+defer rows.Close()
+for rows.Next() {
+    err = rows.Scan(&amp;name)
+    if err != nil {
+        /* handle error */
+    }
+    names = append(names, name)
+}
+
+// ...if you use Selectx (see [Struct Mapping](/sq/basics/struct-mapping.html))
+err := sq.
+    With(cte).
+    Selectx(func(row *sq.Row) {
+        row.ScanInto(&mp;name, cte["name"])
+    }, func() {
+        names = append(names, name)
+    }).
+    From(cte)
+if err != nil {
+    /* handle error */
+}
+</code></pre>
+  <div class="flex justify-between">
+    <div><a href="/sq/sql-expressions/in.html">&lt; Prev: IN</a></div>
+    <div><a href="/sq#sql-expressions">Up: SQL Expressions</a></div>
+    <div><a href="/sq/sql-expressions/case.html">Next: CASE &gt;</a></div>
+  </div>
+  <script src="/prismjs/prism.js"></script>
+</body>
+</html>

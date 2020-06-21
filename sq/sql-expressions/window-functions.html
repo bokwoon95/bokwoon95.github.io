@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/sq/favicon/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/sq/favicon/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/sq/favicon/favicon-16x16.png">
+  <link rel="manifest" href="/sq/favicon/site.webmanifest">
+  <link rel="stylesheet" href="/prismjs/atom-dark.css">
+  <link rel="stylesheet" href="/tachyons.css">
+  <link rel="stylesheet" href="/sakura.css">
+  <link rel="stylesheet" href="/sq/style.css">
+  <title>sq - Window functions</title>
+</head>
+<body>
+  <div class="flex justify-between">
+    <div><a href="/sq/sql-expressions/aggregate-functions.html">&lt; Prev: Aggregate functions</a></div>
+    <div><a href="/sq#sql-expressions">Up: SQL Expressions</a></div>
+    <div><a href="/sq/sql-expressions/subqueries.html">Next: Subqueries &gt;</a></div>
+  </div>
+  <h1>SQL Expressions: Window functions</h1>
+  <h3>
+    <a id="contents" href="#contents" class="sakura-gray no-underline pilcrow">
+      Contents
+    </a>
+  </h3>
+  <ul>
+    <li><a href="#overview">Overview</a></li>
+    <li><a href="#named-window">Named window</a></li>
+  </ul>
+
+  <div>
+    <h3 class="dib">
+      <a id="overview" href="#overview" class="sakura-gray no-underline pilcrow">
+        Overview
+      </a>
+    </h3>
+    &nbsp;&nbsp;<a href="#contents">contents</a>
+  </div>
+  There are five built-in aggregate window functions corresponding to each <a href="/sq/sql-expressions/aggregate-functions.html">aggregate function</a>: COUNT(*) OVER, SUM OVER, AVG OVER, MIN OVER, MAX OVER.
+  <pre><code class="language-go">// Aggregate functions
+func CountOver(window Window) NumberField
+func SumOver(field interface{}, window Window) NumberField
+func AvgOver(field interface{}, window Window) NumberField
+func MinOver(field interface{}, window Window) NumberField
+func MaxOver(field interface{}, window Window) NumberField
+</code></pre>
+  To use a window function, you must define a window:
+  <pre><code class="language-go">// (PARTITION BY tbl.column_1, tbl.column_2
+// ORDER BY tbl.column_1 DESC
+// RANGE BETWEEN 5 PRECEDING AND 10 FOLLOWING)
+window := sq.PartitionBy(tbl.COLUMN_1, tbl.COLUMN_2).
+    OrderBy(tbl.COLUMN_1.Desc()).
+    Frame("RANGE BETWEEN 5 PRECEDING AND 10 FOLLOWING")
+
+// (ORDER BY tbl.column_3 DESC NULLS FIRST)
+window := sq.OrderBy(tbl.COLUMN_3.Desc().NullsFirst())
+
+// (PARTITION BY tbl.column_4)
+window := sq.PartitionBy(tbl.COLUMN_4)
+</code></pre>
+  You can then pass the windows as arguments to the window functions:
+  <pre><code class="language-go">// SELECT COUNT(*) OVER ()
+sq.Select(sq.CountOver(Window{})) // empty window
+
+// SELECT SUM(tbl.column_1) OVER (PARTITION BY tbl.COLUMN_2)
+sq.Select(sq.SumOver(tbl.COLUMN_1, sq.PartitionBy(tbl.COLUMN_2)))
+
+// SELECT AVG(tbl.column_3) OVER (
+//     PARTITION BY tbl.column_1
+//     ORDER BY tbl.column_2
+//     RANGE BETWEEN 5 PRECEDING AND 10 FOLLOWING
+// )
+window := sq.PartitionBy(tbl.COLUMN_1).
+    OrderBy(tbl.COLUMN_2.Desc()).
+    Frame("RANGE BETWEEN 5 PRECEDING AND 10 FOLLOWING")
+sq.Select(sq.AvgOver(tbl.COLUMN_3, window))
+</code></pre>
+  Here are the rest of the available window functions
+  <pre><code class="language-go">// Window functions
+func RowNumberOver(window Window) NumberField
+func RankOver(window Window) NumberField
+func DenseRankOver(window Window) NumberField
+func PercentRankOver(window Window) NumberField
+func CumeDistOver(window Window) NumberField
+func LeadOver(field interface{}, offset interface{}, fallback interface{}, window Window) CustomField
+func LagOver(field interface{}, offset interface{}, fallback interface{}, window Window) CustomField
+func NtileOver(n int, window Window) NumberField
+func FirstValueOver(field interface{}, window Window) CustomField
+func LastValueOver(field interface{}, window Window) CustomField
+func NthValueOver(field interface{}, window Window) CustomField
+</code></pre>
+
+  <div>
+    <h3 class="dib">
+      <a id="named-window" href="#named-window" class="sakura-gray no-underline pilcrow">
+        Named window
+      </a>
+    </h3>
+    &nbsp;&nbsp;<a href="#contents">contents</a>
+  </div>
+  The SELECT query has a WINDOW clause, intended for named windows. There you can define a window and assign it a name, and you can then use that name in the SELECT clause anywhere in place of a window.
+  <pre><code class="language-sql">// Without named window
+SELECT
+    SUM(tbl.column_1) OVER (PARTTION BY tbl.column_2 ORDER BY tbl.column_3),
+    AVG(tbl.column_4) OVER (PARTTION BY tbl.column_2 ORDER BY tbl.column_3),
+    MIN(tbl.column_5) OVER (PARTTION BY tbl.column_6)
+FROM
+    tbl;
+
+// With named window
+SELECT
+    SUM(tbl.column_1) OVER w1,
+    AVG(tbl.column_4) OVER w1,
+    MIN(tbl.column_5) OVER w2
+WINDOW
+    w1 AS (PARTTION BY tbl.column_2 ORDER BY tbl.column_3),
+    w2 AS (PARTTION BY tbl.column_6)
+FROM
+    tbl;
+</code></pre>
+  You can name windows in sq with <code>.As</code>, and when you pass it into the window function you must call <code>.Name()</code> in order to render the window name, not the window definition. Remember to also pass in the window definition!
+  <pre><code class="language-go">// SELECT
+//     SUM(tbl.column_1) OVER w1,
+//     AVG(tbl.column_4) OVER w1,
+//     MIN(tbl.column_5) OVER w2
+// WINDOW
+//     w1 AS (PARTTION BY tbl.column_2 ORDER BY tbl.column_3),
+//     w2 AS (PARTTION BY tbl.column_6)
+// FROM
+//     tbl
+w1 := sq.PartitionBy(tbl.COLUMN_2).OrderBy(tbl.COLUMN_3).As("w1")
+w2 := sq.PartitionBy(tbl.COLUMN_6).As("w2")
+sq.Select(
+    sq.SumOver(tbl.COLUMN_1, w1.Name()),
+    sq.SumOver(tbl.COLUMN_4, w1.Name()),
+    sq.SumOver(tbl.COLUMN_5, w2.Name()),
+).
+Window(w1, w2).
+From(tbl)
+</code></pre>
+  <div class="flex justify-between">
+    <div><a href="/sq/sql-expressions/aggregate-functions.html">&lt; Prev: Aggregate functions</a></div>
+    <div><a href="/sq#sql-expressions">Up: SQL Expressions</a></div>
+    <div><a href="/sq/sql-expressions/subqueries.html">Next: Subqueries &gt;</a></div>
+  </div>
+  <script src="/prismjs/prism.js"></script>
+</body>
+</html>

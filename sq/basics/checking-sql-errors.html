@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/sq/favicon/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/sq/favicon/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/sq/favicon/favicon-16x16.png">
+  <link rel="manifest" href="/sq/favicon/site.webmanifest">
+  <link rel="stylesheet" href="/prismjs/atom-dark.css">
+  <link rel="stylesheet" href="/tachyons.css">
+  <link rel="stylesheet" href="/sakura.css">
+  <link rel="stylesheet" href="/sq/style.css">
+  <title>sq - Checking for specific SQL errors</title>
+</head>
+<body>
+  <div class="flex justify-between">
+    <div><a href="/sq/basics/logging.html">&lt; Prev: Logging</a></div>
+    <div><a href="/sq#basics">Up: Basics</a></div>
+  </div>
+  <h1>Basics: Checking for specific SQL errors</h1>
+  Sometimes when a query fails, you may want to check if the error was due to a Foreign Key constraint violation, or a Unique Key constraint violation, etc. This is how you do it.
+
+  <h5>
+    <a id="foreign-key" href="#foreign-key" class="sakura-gray no-underline pilcrow">Foreign Key Violation</a>
+  </h5>
+  <pre><code class="language-go">// Postgres
+_, err := sq.InsertInto(tbl).
+    Column(tbl.A, tbl.B, /* ... */).
+    Values("a", "b", /* ...*/).
+    Exec(DB, 0)
+if err != nil {
+    var pqerr *pq.Error
+    if errors.As(err, &amp;pqerr) {
+        // "23503" is foreign_key_violation in
+        // https://www.postgresql.org/docs/current/errcodes-appendix.html
+        if pqerr.Code == "23503" {
+            // Foreign Key Violation
+        }
+    }
+}
+
+// MySQL
+_, err := sq.InsertInto(tbl).
+    Column(tbl.A, tbl.B, /* ... */).
+    Values("a", "b", /* ...*/).
+    Exec(DB, 0)
+if err != nil {
+    var myerr *mysql.MySQLError
+    if errors.As(err, &amp;myerr) {
+        // 1216 is ER_NO_REFERENCED_ROW in
+        // https://dev.mysql.com/doc/refman/8.0/en/server-error-reference.html
+        if myerr.Number == 1216 {
+            // Foreign Key Violation
+        }
+    }
+}
+</code></pre>
+
+  <h5>
+    <a id="unique-key" href="#unique-key" class="sakura-gray no-underline pilcrow">Unique Key Violation</a>
+  </h5>
+  <pre><code class="language-go">// Postgres
+_, err := sq.InsertInto(tbl).
+    Column(tbl.A, tbl.B, /* ... */).
+    Values("a", "b", /* ...*/).
+    Exec(DB, 0)
+if err != nil {
+    var pqerr *pq.Error
+    if errors.As(err, &amp;pqerr) {
+        // "23505" is unique_violation in
+        // https://www.postgresql.org/docs/current/errcodes-appendix.html
+        if pqerr.Code == "23505" {
+            // Unique Key Violation
+        }
+    }
+}
+
+// MySQL
+_, err := sq.InsertInto(tbl).
+    Column(tbl.A, tbl.B, /* ... */).
+    Values("a", "b", /* ...*/).
+    Exec(DB, 0)
+if err != nil {
+    var myerr *mysql.MySQLError
+    if errors.As(err, &amp;myerr) {
+        // 1062 is ER_DUP_ENTRY in
+        // https://dev.mysql.com/doc/refman/8.0/en/server-error-reference.html
+        if myerr.Number == 1062 {
+            // Unique Key Violation
+        }
+    }
+}
+</code></pre>
+
+  If you want to check for more errors, just check for the specific error code at <a href="https://www.postgresql.org/docs/current/errcodes-appendix.html">https://www.postgresql.org/docs/current/errcodes-appendix.html</a> or <a href="https://dev.mysql.com/doc/refman/8.0/en/server-error-reference.html">https://dev.mysql.com/doc/refman/8.0/en/server-error-reference.html</a> and follow the template here.
+  <div class="flex justify-between">
+    <div><a href="/sq/basics/logging.html">&lt; Prev: Logging</a></div>
+    <div><a href="/sq#basics">Up: Basics</a></div>
+  </div>
+  <script src="/prismjs/prism.js"></script>
+</body>
+</html>

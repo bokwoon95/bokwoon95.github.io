@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/sq/favicon/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/sq/favicon/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/sq/favicon/favicon-16x16.png">
+  <link rel="manifest" href="/sq/favicon/site.webmanifest">
+  <link rel="stylesheet" href="/prismjs/atom-dark.css">
+  <link rel="stylesheet" href="/tachyons.css">
+  <link rel="stylesheet" href="/sakura.css">
+  <link rel="stylesheet" href="/sq/style.css">
+  <title>sq - Aggregate functions</title>
+</head>
+<body>
+  <div class="flex justify-between">
+    <div><a href="/sq#sql-expressions">Up: SQL Expressions</a></div>
+    <div><a href="/sq/sql-expressions/window-functions.html">Next: Window functions &gt;</a></div>
+  </div>
+  <h1>SQL Expressions: Aggregate functions</h1>
+  sq provides some aggregate functions out of the box: COUNT, SUM, AVG, MIN, MAX.
+  They return a <a href="/sq/column-types/numbers.html">NumberField</a> so you can use it as an argument to <a href="/sq/basics/struct-mapping.html#row-reference">row.Int, row.Int64 and row.Float64</a> (see <a href="/sq/basics/struct-mapping.html">Struct Mapping</a>).
+  Since NumberFields are Fields, aggregate functions can be used anywhere where a Field is expected.
+  <pre><code class="language-go">// Aggregate functions
+func Count() NumberField
+func Sum(field interface{}) NumberField
+func Avg(field interface{}) NumberField
+func Min(field interface{}) NumberField
+func Max(field interface{}) NumberField
+</code></pre>
+  <p>
+    Notice that instead of taking in a <a href="/sq/basics/tables-fields-and-predicates.html#field">Field</a>, the above aggregate functions take in an <code>interface{}</code>.
+    This is to allow you also pass <a href="/sq/sql-expressions/subqueries.html">subqueries</a> into it.
+    The same rendering logic for <a href="/sq/basics/sql-escape-hatch.html#fieldf-and-predicatef">Fieldf and Predicatef</a> apply here: you can pass anything into it, it is up to you to preserve the SQL semantics of your query.
+  </p>
+  <p>
+    If you need to use any other aggregate functions (e.g. <a href="https://www.postgresql.org/docs/9.5/functions-aggregate.html"><code>array_agg</code> or <code>json_agg</code></a>) you will need to use <a href="/sq/basics/sql-escape-hatch.html#fieldf-and-predicatef">Fieldf/Predicatef</a>.
+  </p>
+  <div class="flex justify-between">
+    <div><a href="/sq#sql-expressions">Up: SQL Expressions</a></div>
+    <div><a href="/sq/sql-expressions/window-functions.html">Next: Window functions &gt;</a></div>
+  </div>
+  <script src="/prismjs/prism.js"></script>
+</body>
+</html>

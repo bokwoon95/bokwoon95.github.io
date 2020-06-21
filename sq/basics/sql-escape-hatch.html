@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/sq/favicon/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/sq/favicon/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/sq/favicon/favicon-16x16.png">
+  <link rel="manifest" href="/sq/favicon/site.webmanifest">
+  <link rel="stylesheet" href="/prismjs/atom-dark.css">
+  <link rel="stylesheet" href="/tachyons.css">
+  <link rel="stylesheet" href="/sakura.css">
+  <link rel="stylesheet" href="/sq/style.css">
+  <title>sq - SQL escape hatch</title>
+</head>
+<body>
+  <div class="flex justify-between">
+    <div><a href="/sq/basics/tables-fields-and-predicates.html">&lt; Prev: Tables, fields and predicates</a></div>
+    <div><a href="/sq#basics">Up: Basics</a></div>
+    <div><a href="/sq/basics/database-connection.html">Next: Database Connection &gt;</a></div>
+  </div>
+
+  <h1>Basics: SQL escape hatch</h1>
+  <h3>
+    <a id="contents" href="#contents" class="sakura-gray no-underline pilcrow">
+      Contents
+    </a>
+  </h3>
+  <ul>
+    <li><a href="#fieldf-and-predicatef"><code>Fieldf</code> and <code>Predicatef</code></a></li>
+    <li><a href="#complex-query">Building a complex query</a></li>
+  </ul>
+
+  <div>
+    <h3 class="dib">
+      <a id="fieldf-and-predicatef" href="#fieldf-and-predicatef" class="sakura-gray no-underline pilcrow">
+        <code>Fieldf</code> and <code>Predicatef</code>
+      </a>
+    </h3>
+    &nbsp;&nbsp;<a href="#contents">contents</a>
+  </div>
+  <p>
+    Now that you know what a <a href="/sq/basics/tables-fields-and-predicates.html#field">Field</a> and a <a href="/sq/basics/tables-fields-and-predicates.html#predicate">Predicate</a> are, there will come a time where you need to write your own Field or Predicate that isn't supported by this package.
+    Examples include calling <a href="https://www.postgresql.org/docs/current/functions-math.html">niche functions</a>, casting a datatype according to your <a href="https://www.postgresqltutorial.com/postgresql-cast/">SQL</a> <a href="https://www.mysqltutorial.org/mysql-cast/">dialect</a>, or just the hundreds of ways SQL can be written that I didn't provision for.
+  </p>
+  <p>
+    That is where the <code>Fieldf</code> and <code>Predicatef</code> functions come in. <b>They let you cast arbitrary expressions into valid Fields and Predicates that you can use inside the query builder</b>.
+  </p>
+  <pre><code class="language-go">/* Fieldf and Predicatef Function Signatures */
+func Fieldf(format string, values ...interface{}) CustomField
+func Predicatef(format string, values ...interface{}) CustomPredicate
+// CustomField and CustomPredicate implement the Field and Predicate interfaces
+// respectively
+
+u := tables.USERS()
+// examples below use Postgres dollar placeholders $1, $2, $3 etc
+
+Select(Fieldf("CAST(? AS TEXT)", u.USER_ID))
+// query: SELECT CAST(users.user_id AS TEXT)
+// args: []
+
+Select(Fieldf(
+    "concat_lower_or_upper(a := ?, uppercase := ?, b := ?)",
+    "hello world", true, u.EMAIL,
+))
+// query: SELECT concat_lower_or_upper(a := $1, uppercase := $2, b := users.email)
+// args: ["hello world", true]
+
+Where(Predicatef(
+  "? IN (?) OR EXISTS(?)",
+  u.USER_ID, []int{1,2,3}, SelectOne().From(u).Where(u.USER_ID.EqInt(37)),
+))
+// query: WHERE users.user_id IN ($1, $2, $3) OR EXISTS(SELECT 1 FROM public.users WHERE users.user_id = $4)
+// args: [1, 2, 3, 37]
+</code></pre>
+  <p>
+    As you can see <code>Fieldf</code> and <code>Predicatef</code> function similar to the Printf function, except the only format placeholder is the <code>?</code> question mark.
+    The values are then expanded, one by one, into each <code>?</code> question mark placeholder.
+    The important thing to know is that it recognizes its own types.
+    So if you passed in a Field or Predicate to the function, it would render the Field or Predicate accordingly.
+    <i>It also recognizes Queries, which is how you can embed subqueries into your fields and predicates.</i>
+    Otherwise if it receives a primitive type or a type it does not recognize, it simply throws in the appropriate SQL placeholder into the query (Postgres &rarr; <code>$1, $2, etc</code>, MySQL &rarr; <code>?, ?, etc</code>) and adds the value into the list of args.
+  </p>
+  <p>
+    <h6>
+      <a id="slice-expansion" href="#slice-expansion" class="sakura-gray no-underline"><code>Fieldf/Predicatef</code> Slice expansion</a>
+    </h6>
+    Slices, no matter the type, are expanded into a comma-separated list of placeholders. The contents of the slice are then added to the list of args.
+    This lets you do neat things in Postgres, like catering to both the <code>IN (value1, value2, ...)</code> and <code>= ANY(ARRAY[value1, value2, ...])</code> expressions. As mentioned in <a href="https://stackoverflow.com/a/34627688">https://stackoverflow.com/a/34627688</a>, the following expressions are equivalent:
+    <pre><code class="language-sql">SELECT * FROM foo WHERE id = ANY (ARRAY[1, 2, 3]);
+SELECT * FROM foo WHERE id IN (1, 2, 3);
+</code></pre>
+    This is how you'd express them in sq:
+    <pre><code class="language-go">SelectAll().From(foo).Where(Predicatef("? = ANY(ARRAY[?])", foo.ID, []int{1,2,3}))
+SelectAll().From(foo).Where(Predicatef("? IN (?)", foo.ID, []int{1,2,3}))
+// query: SELECT * FROM foo WHERE foo.id = ANY(ARRAY[$1, $2, $3]) args: [1, 2, 3]
+// query: SELECT * FROM foo WHERE foo.id IN ($1, $2, $3) args: [1, 2, 3]
+</code></pre>
+  Same slice, but formatted differently. In fact, all Fields in sq already support the <code>IN</code> expression in the exact same way.
+  If you look in sq's source code, you will find that most helper functions are simply wrappers around <code>Fieldf</code> and <code>Predicatef</code>. Now that you know it, you can write your own.
+  </p>
+
+  <div>
+    <h3 class="dib">
+      <a id="complex-query" href="#complex-query" class="sakura-gray no-underline pilcrow">
+        Building a complex query
+      </a>
+    </h3>
+    &nbsp;&nbsp;<a href="#contents">contents</a>
+  </div>
+  <p>
+    Here is a real query I had to write in a project, and a demonstration of how how easy <a href="#fieldf-and-predicatef"><code>Fieldf</code></a> makes it to build complex queries.
+    I needed to copy over an existing table row into a new row, but modify the year in the timestamp column to a specific year (that was user-specified). It was an upsert, which meant that if the new row already exists I just had to modify the timestamp.
+    I found a <a href="https://stackoverflow.com/a/56276474">stackoverflow answer</a> showing how to set the year in a timestamp, which looks like this:
+    <pre><code class="language-sql">SET date_column = date_column +
+  MAKE_INTERVAL(
+    YEARS := &lt;target_year&gt; - EXTRACT(YEAR FROM date_column)::INTEGER
+  )
+</code></pre>
+    This was how I adapted that expression into my query (SQL, followed by Go).
+    <pre><code class="language-sql">INSERT INTO public.periods AS p1 (cohort, stage, milestone, start_at, end_at)
+SELECT
+    $1,
+    p2.stage,
+    p2.milestone,
+    p2.start_at + MAKE_INTERVAL(YEARS := $2::INT - EXTRACT(YEAR FROM p2.start_at)::INT),
+    p2.end_at + MAKE_INTERVAL(YEARS := $3::INT - EXTRACT(YEAR FROM p2.end_at)::INT)
+FROM
+    public.periods AS p2
+    JOIN public.forms AS f ON f.period_id = p2.period_id
+    WHERE f.form_id = $4
+LIMIT 1
+ON CONFLICT (cohort, stage, milestone)
+DO UPDATE SET start_at = EXCLUDED.start_at, end_at = EXCLUDED.end_at;
+</code></pre>
+    <pre><code class="language-go">targetYear := "2020"
+formID := 1
+p1, p2 := tables.PERIODS().As("p1"), tables.PERIODS().As("p2")
+f := tables.FORMS().As("f")
+_, err := sq.InsertInto(p1).
+    Columns(p1.COHORT, p1.STAGE, p1.MILESTONE, p1.START_AT, p1.END_AT).
+    Select(sq.
+        Select(
+            sq.String(targetYear),
+            p2.STAGE,
+            p2.MILESTONE,
+            sq.Fieldf(
+                "? + MAKE_INTERVAL(YEARS := ?::INT - EXTRACT(YEAR FROM ?)::INT)",
+                p2.START_AT, targetYear, p2.START_AT,
+            ),
+            sq.Fieldf(
+                "? + MAKE_INTERVAL(YEARS := ?::INT - EXTRACT(YEAR FROM ?)::INT)",
+                p2.END_AT, targetYear, p2.END_AT,
+            ),
+        ).
+        From(p2).
+        Join(f, f.PERIOD_ID.Eq(p2.PERIOD_ID)).
+        Where(sq.Predicatef("? = ?", f.FORM_ID, formID)).
+        Limit(1),
+    ).
+    OnConflict(p1.COHORT, p1.STAGE, p1.MILESTONE).
+    DoUpdateSet(
+        p1.START_AT.Set(sq.Excluded(p1.START_AT)),
+        p1.END_AT.Set(sq.Excluded(p1.END_AT)),
+    ).
+    Exec(DB, 0)
+</code></pre>
+  </p>
+
+  <div class="flex justify-between">
+    <div><a href="/sq/basics/tables-fields-and-predicates.html">&lt; Prev: Tables, fields and predicates</a></div>
+    <div><a href="/sq#basics">Up: Basics</a></div>
+    <div><a href="/sq/basics/database-connection.html">Next: Database Connection &gt;</a></div>
+  </div>
+  <p></p>
+  <script src="/prismjs/prism.js"></script>
+</body>
+</html>

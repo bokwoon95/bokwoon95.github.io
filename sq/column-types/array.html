@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/sq/favicon/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/sq/favicon/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/sq/favicon/favicon-16x16.png">
+  <link rel="manifest" href="/sq/favicon/site.webmanifest">
+  <link rel="stylesheet" href="/prismjs/atom-dark.css">
+  <link rel="stylesheet" href="/tachyons.css">
+  <link rel="stylesheet" href="/sakura.css">
+  <link rel="stylesheet" href="/sq/style.css">
+  <title>sq - ARRAY</title>
+</head>
+<body>
+  <div class="flex justify-between">
+    <div><a href="/sq/column-types/time.html">&lt; Prev: TIMESTAMPTZ/DATETIME</a></div>
+    <div><a href="/sq#column-types">Up: Column Types</a></div>
+    <div><a href="/sq/column-types/json.html">Next: JSON &gt;</a></div>
+  </div>
+  <h1>Column Types: ARRAY</h1>
+  The sq representation of ARRAY types is the ArrayField. You can convert slices into an ArrayField, but only for certain types. The slice/array types you can convert between are show below:
+  <pre><code class="language-go">func Array(slice interface{}) ArrayField
+
+// When converting a slice to an ArrayField
+Array(mySlice)
+// When scanning an ArrayField back to a slice with [Struct Mapping](/sq/basics/struct-mapping.html#select-one-vs-many)
+row.ScanArray(&amp;mySlice, tbl.SOME_ARRAY_COLUMN)
+// supported conversions:
+// []bool     &lt;=&gt; BOOL[]
+// []float64  &lt;=&gt; FLOAT[]
+// []int       =&gt; INT[]
+// []int64    &lt;=  INT[]
+// []int64    &lt;=&gt; BIGINT[]
+// []string   &lt;=&gt; TEXT[]
+</code></pre>
+  <p>
+    Take note that if you want to map an <code>INT[]/BIGINT[]</code> Array back to a Go slice, you have to use <code>[]int64</code> and not <code>[]int</code>.
+  </p>
+  Here are the available <a href="/sq/basics/tables-fields-and-predicates.html#predicate">Predicate</a> operations on an ArrayField:
+  <pre class="wide-width-l"><code class="language-go">func (f ArrayField) IsNull() Predicate          // f IS NULL
+func (f ArrayField) IsNotNull() Predicate       // f IS NOT NULL
+func (f ArrayField) In(v interface{}) Predicate // f IN (v)
+
+// ArrayField
+func (f ArrayField) Eq(field ArrayField) Predicate          // f = field
+func (f ArrayField) Ne(field ArrayField) Predicate          // f &lt;&gt; field
+func (f ArrayField) Gt(field ArrayField) Predicate          // f &gt; field
+func (f ArrayField) Ge(field ArrayField) Predicate          // f &gt;= field
+func (f ArrayField) Lt(field ArrayField) Predicate          // f &lt; field
+func (f ArrayField) Le(field ArrayField) Predicate          // f &lt;= field
+func (f ArrayField) Contains(field ArrayField) Predicate    // f @&gt; field
+func (f ArrayField) ContainedBy(field ArrayField) Predicate // f &lt;@ field
+func (f ArrayField) Overlaps(field ArrayField) Predicate    // f &amp;&amp; field
+</code></pre>
+  <div class="flex justify-between">
+    <div><a href="/sq/column-types/time.html">&lt; Prev: TIMESTAMPTZ/DATETIME</a></div>
+    <div><a href="/sq#column-types">Up: Column Types</a></div>
+    <div><a href="/sq/column-types/json.html">Next: JSON &gt;</a></div>
+  </div>
+  <script src="/prismjs/prism.js"></script>
+</body>
+</html>

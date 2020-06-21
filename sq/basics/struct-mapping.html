@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/sq/favicon/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/sq/favicon/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/sq/favicon/favicon-16x16.png">
+  <link rel="manifest" href="/sq/favicon/site.webmanifest">
+  <link rel="stylesheet" href="/prismjs/atom-dark.css">
+  <link rel="stylesheet" href="/tachyons.css">
+  <link rel="stylesheet" href="/sakura.css">
+  <link rel="stylesheet" href="/sq/style.css">
+  <title>sq - Struct mapping</title>
+</head>
+<body>
+  <div class="flex justify-between">
+    <div><a href="/sq/basics/database-connection.html">&lt; Prev: Database connection</a></div>
+    <div><a href="/sq#basics">Up: Basics</a></div>
+    <div><a href="/sq/basics/fetch-and-exec.html">Next: Fetch and Exec &gt;</a></div>
+  </div>
+  <h1>Basics: Struct Mapping</h1>
+  <h3>
+    <a id="contents" href="#contents" class="sakura-gray no-underline pilcrow">
+      Contents
+    </a>
+  </h3>
+  <ul>
+    <li><a href="#overview">Overview</a></li>
+    <li><a href="#how-selectx-works">A mental model of how <code>Selectx</code> works</a></li>
+    <li><a href="#terminating-early">Terminating <code>rows.Next()</code> early</a></li>
+    <li><a href="#nulls">Null values</a></li>
+    <li><a href="#reusable-mappers">Reusable mapper function</a></li>
+    <li><a href="#sql-expressions">Mapping SQL expressions and sql.Scanner types</a></li>
+    <li><a href="#row-reference"><code>*Row</code> Reference</a></li>
+  </ul>
+
+  <div>
+    <h3 class="dib">
+      <a id="overview" href="#overview" class="sakura-gray no-underline pilcrow">
+        Overview
+      </a>
+    </h3>
+    &nbsp;&nbsp;<a href="#contents">contents</a>
+  </div>
+  <p>
+    <code>Selectx</code> and <code>SelectRowx</code> is sq's way of mapping SELECT results into Go structs. <code>Returningx</code> and <code>ReturningRowx</code> serve the same purpose but for INSERT, UPDATE and DELETE (note that <code>RETURNING</code> is a postgres-only feature).
+  </p>
+  <p>
+    Usefully, <code>Selectx</code> and <code>SelectRowx</code> double as the SELECT clause in a query. That means if you want to put a column in the SELECT clause, you must map it to a Go variable. What does it mean to 'map a column to a Go variable'? Just simple assignment:
+  </p>
+  <pre><code class="language-go">var user User
+u := tables.USERS().As("u")
+err := sq.From(u).
+    Where(u.NAME.EqString("bob")).
+    SelectRowx(func(row *sq.Row) { // &lt;-- mapper function
+        user.UserID = row.Int(u.USER_ID)
+        user.Name = row.String(u.NAME)
+        user.Email = row.String(u.EMAIL)
+        user.CreatedAt = row.Time(u.CREATED_AT)
+    }).
+    Fetch(DB)
+</code></pre>
+  The above query is equivalent to
+  <pre><code class="language-sql">SELECT u.user_id, u.name, u.email, u.created_at
+FROM public.users AS u
+WHERE u.name = 'bob'
+</code></pre>
+Except it also maps the results back to the <code>User</code> struct in one fell swoop. For a full list of methods you can call on <code>*sq.Row</code>, see <a href="#row-reference"><code>*Row</code> Reference</a>.
+  <h6>
+    <a id="select-one-vs-many" href="#select-one-vs-many" class="sakura-gray no-underline">Selecting One vs Selecting Many</a>
+  </h6>
+  <code>SelectRowx</code> is used to map the one row. <code>Selectx</code> is used to map many rows. For <code>Selectx</code>, you must additionally pass in an accumulator function which accumulates the result after each call to the mapper function.
+  <pre><code class="language-go">var user User
+var users []User
+u := tables.USERS().As("u")
+err := sq.From(u).
+    Where(u.NAME.EqString("bob")).
+    Selectx(func(row *sq.Row) { // &lt;-- mapper function
+        user.UserID = row.Int(u.USER_ID)
+        user.Name = row.String(u.NAME)
+        user.Email = row.String(u.EMAIL)
+        user.CreatedAt = row.Time(u.CREATED_AT)
+    }, func() { // &lt;-- accumulator function
+        users = append(users, user)
+    }).
+    Fetch(DB)
+</code></pre>
+  <p>
+    <code>ReturningRowx</code> and <code>Returningx</code> work in a similar way, except they apply to INSERT, UPDATE and DELETE queries.
+    <b>If you use <code>SelectRowx</code> or <code>ReturningRowx</code> and no rows are present, <code>Fetch()</code> will return <a href="https://golang.org/pkg/database/sql/#pkg-variables"><code>sql.ErrNoRows</code></a></b>.
+  </p>
+  <p>
+    It is important that you do not put any accumulator code inside the mapper function. <b>The mapper function should run the same every time it is called</b>, do not use any variable inside that saves state between calls <i>and</i> affects the flow of code.
+  </p>
+
+  <div>
+    <h3 class="dib">
+      <a id="how-selectx-works" href="#how-selectx-works" class="sakura-gray no-underline pilcrow">
+        A mental model of how <code>Selectx</code> works
+      </a>
+    </h3>
+    &nbsp;&nbsp;<a href="#contents">contents</a>
+  </div>
+  <p>Prerequisite: you know how to do the traditional database/sql <code>DB.Query(query, args...)</code> &rarr; <code>row.Scan(&amp;a, &amp;b, &amp;c...)</code> way of scanning.</p>
+  <p>
+    Before the query is run, sq will run your mapper function that you passed to <code>Selectx</code> with an empty <code>*Row</code> object.
+    This is why you should avoid anything stateful in the mapper: the initial dummy call to the mapper function may end up doing some undesired side effect.
+    The empty <code>*Row</code> object is responsible for collecting the columns you are interested in, but more importantly it also collects the data types that you want the columns to be scanned into.
+  </p>
+  <p>
+    Basically there are two phases:
+    <ul>
+      <li><b>Before query:</b> sq runs the mapper function to collect the list of columns to be SELECT-ed. Then it runs the query.</li>
+      <li><b>After query:</b> sq runs the mapper function to assign the query results to your struct fields.</li>
+    </ul>
+  </p>
+  <p>
+    When you call <code>row.Int(u.USER_ID)</code>, <code>row</code> collects two things -- the column <code>u.USER_ID</code>, but also the data type it should be scanned into: <code>sql.NullInt64</code>.
+    It adds them to two separate slices, the <i>fields</i> slice and the <i>dest</i> slice respectively.
+    The example below illustrates how the row builds up the <i>fields</i> slice in conjuction with the <i>dest</i> slice:
+  </p>
+  <p><b>Before query:</b></p>
+  <pre><code class="language-go">// *sq.Row before mapper:
+// fields: []
+// dest:   []
+
+// mapper function
+func(row *sq.Row) {
+    //            added
+    //              ↓
+    // fields: [u.USER_ID     ]
+    // dest:   [*sql.NullInt64]
+    user.UserID = row.Int(u.USER_ID)
+
+    //                          added
+    //                            ↓
+    // fields: [u.USER_ID,      u.NAME         ]
+    // dest:   [*sql.NullInt64, *sql.NullString]
+    user.Name = row.String(u.NAME)
+
+    //                                            added
+    //                                              ↓
+    // fields: [u.USER_ID,      u.NAME,          u.EMAIL        ]
+    // dest:   [*sql.NullInt64, *sql.NullString, *sql.NullString]
+    user.Email = row.String(u.EMAIL)
+
+    //                                                             added
+    //                                                               ↓
+    // fields: [u.USER_ID,      u.NAME,          u.EMAIL,         u.CREATED_AT ]
+    // dest:   [*sql.NullInt64, *sql.NullString, *sql.NullString, *sql.NullTime]
+    user.CreatedAt = row.Time(u.CREATED_AT)
+}
+
+// *sq.Row after mapper:
+// fields: [u.USER_ID, u.NAME, u.EMAIL, u.CREATED_AT]
+// dest:   [*sql.NullInt64, *sql.NullString, *sql.NullString, *sql.NullTime]
+</code></pre>
+  <p>
+    The <i>fields</i> are inserted into the SELECT query and the query then is run, then the results are scanned back into the <i>dest</i> slice. Because the <i>dest</i> slice was built in conjuction with the <i>fields</i> slice, their number of elements will always match up, as will their types. The eliminates the common problem of adding a column in the SELECT query but forgetting to add a corresponding variable to scan it into.
+  </p>
+  <p>
+    After <code>*Row.dest</code> is populated with scan results, it is fed back to the mapper function. This time it is non-empty and will actually yield the scan value when asked. An internal index keeps track of which column is currently being assigned, and is incremented after each assignment:
+  </p>
+  <p><b>After query:</b></p>
+  <pre><code class="language-go">// Results are scanned into dest with something like this.
+// Code is not exactly accurate, but it is the general idea.
+//                                               fields
+//                              ┌──────────────────────────────────────┐
+// rows, err := DB.Query(SELECT u.USER_ID, u.NAME, u.EMAIL, u.CREATED_AT FROM u WHERE u.NAME = 'bob')
+// for rows.Next() {
+//     rows.Scan(*sql.NullInt64, *sql.NullString, *sql.NullString, *sql.NullTime)
+//               └─────────────────────────────────────────────────────────────┘
+//                                        dest
+//     mapper(rows)
+//     accumulator()
+// }
+
+// mapper function
+func(row *sq.Row) {
+    //            index
+    //              ↓
+    // dest: [*sql.NullInt64, *sql.NullString, *sql.NullString, *sql.NullTime]
+    user.UserID = row.Int(u.USER_ID)
+
+    //                              index
+    //                                ↓
+    // dest: [*sql.NullInt64, *sql.NullString, *sql.NullString, *sql.NullTime]
+    user.Name = row.String(u.NAME)
+
+    //                                               index
+    //                                                 ↓
+    // dest: [*sql.NullInt64, *sql.NullString, *sql.NullString, *sql.NullTime]
+    user.Email = row.String(u.EMAIL)
+
+    //                                                               index
+    //                                                                 ↓
+    // dest: [*sql.NullInt64, *sql.NullString, *sql.NullString, *sql.NullTime]
+    user.CreatedAt = row.Time(u.CREATED_AT)
+}
+</code></pre>
+  <p>
+    After the mapper function completes an iteration, the user struct is populated with the row results. The accumulator function is then called, adding a copy of the populated user to the list of users:
+  </p>
+  <pre><code class="language-go">// accumulator function
+func() {
+    users = append(users, user)
+}
+</code></pre>
+  The user variable is then re-mapped using the next row, the accumulator called, etc until all database rows are iterated.
+
+  <div>
+    <h3 class="dib">
+      <a id="terminating-early" href="#terminating-early" class="sakura-gray no-underline pilcrow">
+        Terminating <code>rows.Next()</code> early
+      </a>
+    </h3>
+    &nbsp;&nbsp;<a href="#contents">contents</a>
+  </div>
+  Typically using <code>Selectx</code> will iterate through all rows of the query by calling <code>rows.Next()</code> repeatedly to completion.
+  However if you wish to break the loop early for whatever reason, you can raise a panic in the accumulator function with the constant <code>sq.ExitPeacefully</code>. Only then will the loop terminate without error.
+  <pre><code class="language-go">err := From(tbl).
+    SelectRowx(func(row *sq.Row) {
+        /* ...mapper code... */
+    }, func() {
+          if someCondition {
+              panic(sq.ExitPeacefully)
+          }
+    }).
+    Fetch(DB)
+// err is nil
+</code></pre>
+  If you panic with a particular error, sq will terminate the loop and return that particular error. Any other panic type will be printed into a string and returned as a generic error.
+
+  <div>
+    <h3 class="dib">
+      <a id="nulls" href="#nulls" class="sakura-gray no-underline pilcrow">
+        Null values
+      </a>
+    </h3>
+    &nbsp;&nbsp;<a href="#contents">contents</a>
+  </div>
+  Null values are implicitly converted to their zero values when you use <code>row.Int, row.String, row.Bool, row.Time</code>:
+  <pre><code class="language-go">// using only primitive values, not sql.NullXXX
+var userID int
+var name, email string
+var createdAt time.Time
+u := tables.USERS().As("u")
+
+err := sq.From(u).
+    Where(u.NAME.EqString("bob")).
+    SelectRowx(func(row *sq.Row) {
+        // If any of these columns are NULL, you get the zero value
+        userID = row.Int(u.USER_ID)
+        name = row.String(u.NAME)
+        email = row.String(u.EMAIL)
+        createdAt = row.Time(u.CREATED_AT)
+    }).
+    Fetch(DB)
+</code></pre>
+  If you want to actually know if a column is NULL, you can use <code>row.IntValid, row.StringValid, row.BoolValid, row.TimeValid</code> instead.
+  It returns a boolean indicating if the column is NULL:
+  <pre><code class="language-go">// indicates whether each column is NULL
+var userIDValid, nameValid, emailValid, createdAtValid bool
+u := tables.USERS().As("u")
+
+err := sq.From(u).
+    Where(u.NAME.EqString("bob")).
+    SelectRowx(func(row *sq.Row) {
+        userIDValid = row.IntValid(u.USER_ID)
+        nameValid = row.StringValid(u.NAME)
+        emailValid = row.StringValid(u.EMAIL)
+        createdAtValid = row.TimeValid(u.CREATED_AT)
+    }).
+    Fetch(DB)
+</code></pre>
+  Of course, you can still use sql.NullXXX if you want:
+  <pre><code class="language-go">var userID sql.NullInt64
+var name, email sql.NullString
+var createdAt sql.NullTime
+u := tables.USERS().As("u")
+
+err := sq.From(u).
+    Where(u.NAME.EqString("bob")).
+    SelectRowx(func(row *sq.Row) {
+        userID = row.NullInt64(u.USER_ID)
+        name = row.NullString(u.NAME)
+        email = row.NullString(u.EMAIL)
+        createdAt = row.NullTime(u.CREATED_AT)
+    }).
+    Fetch(DB)
+</code></pre>
+  For a full list of available methods on <code>*Row</code>, see <a href="#row-reference"><code>*Row</code> Reference</a>.
+  If you want to scan any other type not mentioned in the <a href="#row-reference">reference</a>, you can use <a href="#sql-expressions">row.ScanInto</a> instead.
+
+  <div>
+    <h3 class="dib">
+      <a id="reusable-mappers" href="#reusable-mappers" class="sakura-gray no-underline pilcrow">
+        Reusable mapper function
+      </a>
+    </h3>
+    &nbsp;&nbsp;<a href="#contents">contents</a>
+  </div>
+  <p>
+    If you find yourself writing the same mapper code over and over, good news. The mapper is just a function, and you can make it a named function and use that everywhere. A useful pattern is to make the mapper a method on the struct pointer receiver:
+  </p>
+  <pre><code class="language-go">// RowMapper encapsulates the logic needed to map a row to a *User struct. It's
+// a good practice to take in the table argument needed to populate the struct,
+// in this case the tables.TABLE_USERS struct. This is so that the table(s)
+// that the RowMapper needs are made explicit in the function signature.
+func (user *User) RowMapper(u tables.TABLE_USERS) func(*sq.Row) {
+    return func(row *sq.Row) {
+        user.UserID = row.Int(u.USER_ID)
+        user.Name = row.String(u.NAME)
+        user.Email = row.String(u.EMAIL)
+        user.CreatedAt = row.Time(u.CREATED_AT)
+    }
+}
+
+u := tables.USERS()
+user := &amp;User{} // &lt;-- declare a *User, and make sure to initialize it!
+var users User
+// This query is now 4 lines because the code needed to SELECT and map columns
+// is abstracted away into its own function.  The query only has to filter and
+// join the necessary tables.
+err := sq.From(u).
+    Where(u.NAME.EqString("bob")).
+    Selectx(user.RowMapper(u), func() { users = append(users, *user) }).
+    Fetch(DB)
+</code></pre>
+
+  <div>
+    <h3 class="dib">
+      <a id="sql-expressions" href="#sql-expressions" class="sakura-gray no-underline pilcrow">
+        Mapping SQL expressions and sql.Scanner types
+      </a>
+    </h3>
+    &nbsp;&nbsp;<a href="#contents">contents</a>
+  </div>
+  The <code>*Row</code> methods are strict in what kind of Fields they accept: <code>row.Int</code> only accepts <a href="/sq/column-types/numbers.html">NumberFields</a>, <code>row.String</code> only accepts <a href="/sq/column-types/strings.html">StringFields</a>, <code>row.Time</code> only accepts <a href="/sq/column-types/time.html">TimeFields</a> etc.
+  If you want to pass in a custom SQL expression (made with  <a href="/sq/basics/sql-escape-hatch.html#fieldf-and-predicatef"><code>Fieldf</code></a>) like:
+  <pre><code class="language-go">// SQL
+COALESCE(u.score, MAX(u.overall_score, 50))
+// Go
+Fieldf("COALESCE(?, MAX(?, 50))", u.SCORE, u.OVERALL_SCORE)
+</code></pre>
+  You need to use <code>row.ScanInto</code>. The following lines below do the same thing:
+  <pre><code class="language-go">user.UserID = row.Int(u.USER_ID)
+/* is similar to doing */
+row.ScanInto(&amp;user.UserID, u.USER_ID)
+// note: the line above will choke on NULL values because it's scanning
+// directly into an int
+</code></pre>
+  The difference is that <code>row.ScanInto</code> accepts any Field. So you can pass any custom SQL expression into it:
+  <pre><code class="language-go">// Equivalent Query:
+// SELECT COALESCE(u.score, MAX(u.overall_score, 50)) FROM public.users AS u
+u := tables.USERS().As("u")
+err := sq.From(u).
+    SelectRowx(func(row *sq.Row) {
+        row.ScanInto(&amp;score, Fieldf("COALESCE(?, MAX(?, 50))", u.SCORE, u.OVERALL_SCORE))
+    }).
+    Fetch(DB)
+</code></pre>
+  <a id="custom-type" href="#custom-type" class="sakura-gray no-underline"><b>This is how sql.Scanner types can be scanned as well.</b></a>
+  Simply pass in a pointer to your custom type implementing <a href="https://gist.github.com/jmoiron/6979540">sql.Scanner</a>, as well as the Field you are scanning from.
+  <pre><code class="language-go">row.ScanInto(&amp;customType, tbl.CUSTOM_FIELD)</code></pre>
+
+  <div>
+    <h3 class="dib">
+      <a id="row-reference" href="#row-reference" class="sakura-gray no-underline pilcrow">
+        <code>*Row</code> Reference
+      </a>
+    </h3>
+    &nbsp;&nbsp;<a href="#contents">contents</a>
+  </div>
+  <pre class="wide-width-l"><code>// Note: these links lead to the Postgres version of the godoc package.
+// Everything is the same for the MySQL version except it lacks ScanArray.
+type *Row struct {
+    <a href="https://godoc.org/github.com/bokwoon95/go-structured-query/postgres">ScanInto(dest interface{}, field Field)</a>
+    // only available for postgres, see <a href="/sq/column-types/array.html">Array</a>
+    <a href="https://godoc.org/github.com/bokwoon95/go-structured-query/postgres">ScanArray(slice interface{}, field Field)</a>
+    // bool
+    // note that BooleanFields are also Predicates, so they can be used here
+    <a href="https://godoc.org/github.com/bokwoon95/go-structured-query/postgres">Bool(predicate Predicate) bool</a>
+    <a href="https://godoc.org/github.com/bokwoon95/go-structured-query/postgres">BoolValid(predicate Predicate) bool</a>
+    <a href="https://godoc.org/github.com/bokwoon95/go-structured-query/postgres">NullBool(predicate Predicate)</a>
+    // float64
+    <a href="https://godoc.org/github.com/bokwoon95/go-structured-query/postgres">Float64(field NumberField) float64</a>
+    <a href="https://godoc.org/github.com/bokwoon95/go-structured-query/postgres">Float64Valid(field NumberField) bool</a>
+    <a href="https://godoc.org/github.com/bokwoon95/go-structured-query/postgres">NullFloat64(field NumberField) sql.NullFloat64</a>
+    // int
+    <a href="https://godoc.org/github.com/bokwoon95/go-structured-query/postgres">Int(field NumberField) int</a>
+    <a href="https://godoc.org/github.com/bokwoon95/go-structured-query/postgres">IntValid(field NumberField) bool</a>
+    // int64
+    <a href="https://godoc.org/github.com/bokwoon95/go-structured-query/postgres">Int64(field NumberField) int64</a>
+    <a href="https://godoc.org/github.com/bokwoon95/go-structured-query/postgres">Int64Valid(field NumberField) bool</a>
+    <a href="https://godoc.org/github.com/bokwoon95/go-structured-query/postgres">NullInt64(field NumberField) sql.NullInt64</a>
+    // string
+    <a href="https://godoc.org/github.com/bokwoon95/go-structured-query/postgres">String(field StringField) string</a>
+    <a href="https://godoc.org/github.com/bokwoon95/go-structured-query/postgres">StringValid(field StringField) bool</a>
+    <a href="https://godoc.org/github.com/bokwoon95/go-structured-query/postgres">NullString(field StringField) sql.NullString</a>
+    // time.Time
+    <a href="https://godoc.org/github.com/bokwoon95/go-structured-query/postgres">Time(field TimeField) time.Time</a>
+    <a href="https://godoc.org/github.com/bokwoon95/go-structured-query/postgres">TimeValid(field TimeField) bool</a>
+    <a href="https://godoc.org/github.com/bokwoon95/go-structured-query/postgres">NullTime(field TimeField) sql.NullTime</a>
+}
+</code></pre>
+  <div class="flex justify-between">
+    <div><a href="/sq/basics/database-connection.html">&lt; Prev: Database connection</a></div>
+    <div><a href="/sq#basics">Up: Basics</a></div>
+    <div><a href="/sq/basics/fetch-and-exec.html">Next: Fetch and Exec &gt;</a></div>
+  </div>
+  <script src="/prismjs/prism.js"></script>
+</body>
+</html>

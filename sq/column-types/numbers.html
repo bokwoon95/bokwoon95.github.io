@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/sq/favicon/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/sq/favicon/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/sq/favicon/favicon-16x16.png">
+  <link rel="manifest" href="/sq/favicon/site.webmanifest">
+  <link rel="stylesheet" href="/prismjs/atom-dark.css">
+  <link rel="stylesheet" href="/tachyons.css">
+  <link rel="stylesheet" href="/sakura.css">
+  <link rel="stylesheet" href="/sq/style.css">
+  <title>sq - Numbers</title>
+</head>
+<body>
+  <div class="flex justify-between">
+    <div><a href="/sq#column-types">Up: Column Types</a></div>
+    <div><a href="/sq/column-types/strings.html">Next: Strings &gt;</a></div>
+  </div>
+  <h1>Column Types: Numbers</h1>
+  The sq representation of all numeric types (INT, FLOAT, etc) is the NumberField. You can convert an int, int64 or float64 into a NumberField:
+  <pre><code class="language-go">func Int(num int) NumberField
+func Int64(num int64) NumberField
+func Float64(num float64) NumberField
+</code></pre>
+  Here are the available <a href="/sq/basics/tables-fields-and-predicates.html#predicate">Predicate</a> operations on a NumberField:
+  <pre class="wide-width-l"><code class="language-go">func (f NumberField) IsNull() Predicate          // f IS NULL
+func (f NumberField) IsNotNull() Predicate       // f IS NOT NULL
+func (f NumberField) In(v interface{}) Predicate // f IN (v)
+
+// NumberField
+func (f NumberField) Eq(field NumberField) Predicate // f = field
+func (f NumberField) Ne(field NumberField) Predicate // f &lt;&gt; field
+func (f NumberField) Gt(field NumberField) Predicate // f &gt; field
+func (f NumberField) Ge(field NumberField) Predicate // f &gt;= field
+func (f NumberField) Lt(field NumberField) Predicate // f &lt; field
+func (f NumberField) Le(field NumberField) Predicate // f &lt;= field
+
+// int
+func (f NumberField) EqInt(num int) Predicate // f = num
+func (f NumberField) NeInt(num int) Predicate // f &lt;&gt; num
+func (f NumberField) GtInt(num int) Predicate // f &gt; num
+func (f NumberField) GeInt(num int) Predicate // f &gt;= num
+func (f NumberField) LtInt(num int) Predicate // f &lt; num
+func (f NumberField) LeInt(num int) Predicate // f &lt;= num
+
+// int64
+func (f NumberField) EqInt64(num int64) Predicate // f = num
+func (f NumberField) NeInt64(num int64) Predicate // f &lt;&gt; num
+func (f NumberField) GtInt64(num int64) Predicate // f &gt; num
+func (f NumberField) GeInt64(num int64) Predicate // f &gt;= num
+func (f NumberField) LtInt64(num int64) Predicate // f &lt; num
+func (f NumberField) LeInt64(num int64) Predicate // f &lt;= num
+
+// float64
+func (f NumberField) EqFloat64(num float64) Predicate // f = num
+func (f NumberField) NeFloat64(num float64) Predicate // f &lt;&gt; num
+func (f NumberField) GtFloat64(num float64) Predicate // f &gt; num
+func (f NumberField) GeFloat64(num float64) Predicate // f &gt;= num
+func (f NumberField) LtFloat64(num float64) Predicate // f &lt; num
+func (f NumberField) LeFloat64(num float64) Predicate // f &lt;= num
+</code></pre>
+  <div class="flex justify-between">
+    <div><a href="/sq#column-types">Up: Column Types</a></div>
+    <div><a href="/sq/column-types/strings.html">Next: Strings &gt;</a></div>
+  </div>
+  <script src="/prismjs/prism.js"></script>
+</body>
+</html>

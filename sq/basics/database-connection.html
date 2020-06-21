@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/sq/favicon/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/sq/favicon/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/sq/favicon/favicon-16x16.png">
+  <link rel="manifest" href="/sq/favicon/site.webmanifest">
+  <link rel="stylesheet" href="/prismjs/atom-dark.css">
+  <link rel="stylesheet" href="/tachyons.css">
+  <link rel="stylesheet" href="/sakura.css">
+  <link rel="stylesheet" href="/sq/style.css">
+  <title>sq - Database connection</title>
+</head>
+<body>
+  <div class="flex justify-between">
+    <div><a href="/sq/basics/sql-escape-hatch.html">&lt; Prev: SQL escape hatch</a></div>
+    <div><a href="/sq#basics">Up: Basics</a></div>
+    <div><a href="/sq/basics/struct-mapping.html">Next: Struct Mapping &gt;</a></div>
+  </div>
+  <h1>Basics: Database connection</h1>
+  sq's <a href="/sq/basics/fetch-and-exec.html"><code>.Fetch()</code> and <code>.Exec()</code></a> accept any database connection matching this interface
+  <pre><code class="language-go">type DB interface {
+    Query(query string, args ...interface{}) (*sql.Rows, error)
+    QueryContext(ctx context.Context, query string, args ...interface{}) (*sql.Rows, error)
+    Exec(query string, args ...interface{}) (sql.Result, error)
+    ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error)
+}
+</code></pre>
+  This means you can use database/sql and sqlx's connections out of the box.
+  <div class="flex justify-between">
+    <div><a href="/sq/basics/sql-escape-hatch.html">&lt; Prev: SQL escape hatch</a></div>
+    <div><a href="/sq#basics">Up: Basics</a></div>
+    <div><a href="/sq/basics/struct-mapping.html">Next: Struct Mapping &gt;</a></div>
+  </div>
+  <script src="/prismjs/prism.js"></script>
+</body>
+</html>

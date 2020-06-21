@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/sq/favicon/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/sq/favicon/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/sq/favicon/favicon-16x16.png">
+  <link rel="manifest" href="/sq/favicon/site.webmanifest">
+  <link rel="stylesheet" href="/prismjs/atom-dark.css">
+  <link rel="stylesheet" href="/tachyons.css">
+  <link rel="stylesheet" href="/sakura.css">
+  <link rel="stylesheet" href="/sq/style.css">
+  <title>sq - WITH (Common Table Expressions)</title>
+</head>
+<body>
+  <div class="flex justify-between">
+    <div><a href="/sq/sql-expressions/subqueries.html">&lt; Prev: Subqueries</a></div>
+    <div><a href="/sq#sql-expressions">Up: SQL Expressions</a></div>
+    <div><a href="/sq/sql-expressions/order-by.html">Next: ORDER BY &gt;</a></div>
+  </div>
+  <h1>SQL Expressions: WITH (Common Table Expressions)</h1>
+  Common Table Expressions (CTEs) are an alternative to <a href="/sq/sql-expressions/subqueries.html">subqueries</a>. They are declared and used like this:
+  <pre><code class="language-go">cte1 := sq.
+    Select(tbl.COLUMN_1).
+    From(tbl).
+    Where(tbl.COLUMN_2.Eq(tbl.COLUMN_3)).
+    CTE("cte1")
+cte2 := sq.SelectAll().From(tbl).CTE("cte2")
+sq.With(cte1, cte2).Select(cte1["column_1"]).From(cte1)
+</code></pre>
+  Equivalent SQL:
+  <pre><code class="language-sql">WITH cte1 AS (
+    SELECT tbl.column_1
+    FROM tbl
+    WHERE tbl.column_2 = tbl.column3
+), cte2 AS (
+    SELECT * FROM tbl
+)
+SELECT cte1.column1 FROM cte1
+</code></pre>
+
+  <h3>
+    <a id="recursive" href="#recursive" class="sakura-gray no-underline pilcrow">
+      Recursive CTEs
+    </a>
+  </h3>
+  This is how you define a recursive CTE:
+  <pre><code class="language-sql">-- SQL
+WITH RECURSIVE tens (n) AS (
+    SELECT 10
+    UNION ALL
+    SELECT tens.n + 10 FROM tens WHERE tens.n + 10 &lt;= 100
+)
+SELECT n FROM tens;
+</code></pre>
+  <pre><code class="language-go">// Go
+tens := sq.RecursiveCTE("tens", "n") // name, followed by columns
+tens = tens.
+    Initial(sq.Select(Int(10))).
+    UnionAll(sq.
+        Select(Fieldf("? + 10", tens["n"])). // [Fieldf defintion](/sq/basics/sql-escape-hatch.html#fieldf-and-predicatef)
+        From(tens).
+        Where(Fieldf("? + 10 &lt;= 100", tens["n"]).Le(100)),
+    )
+sq.With(tens).Select(tens["n"]).From(tens)
+</code></pre>
+  You may omit the list of columns in the RecursiveCTE() defintion if your initial query already has column names:
+  <pre><code class="language-sql">-- SQL
+WITH RECURSIVE subordinates AS (
+    SELECT e.employee_id, e.manager_id, e.full_name
+    FROM employees AS e
+    WHERE employee_id = 2
+  UNION
+    SELECT e.employee_id, e.manager_id, e.full_name
+    FROM employees AS e
+    INNER JOIN subordinates ON subordinates.employee_id = e.manager_id
+)
+SELECT
+    subordinates.employee_id,
+    subordinates.manager_id,
+    subordinates.full_name
+FROM
+    subordinates;
+</code></pre>
+  <pre><code class="language-go">// Go
+e := tables.EMPLOYEES().As("e")
+subordinates := RecursiveCTE("subordinates")
+subordinates = subordinates.
+    Initial(
+        sq.Select(e.EMPLOYEE_ID, e.MANAGER_ID, e.FULL_NAME).
+            From(e).
+            Where(e.EMPLOYEE_ID.EqInt(2)),
+    ).
+    Union(
+        sq.Select(e.EMPLOYEE_ID, e.MANAGER_ID, e.FULL_NAME).
+            From(e).
+            Join(subordinates, subordinates["employee_id"].Eq(e.MANAGER_ID)),
+        // This function is variadic. If you need to UNION any more queries,
+        // add them here. e.g.
+        // sq.Select(blabla).From(blabla).Where(condition1),
+        // sq.Select(blabla).From(blabla).Where(condition2),
+    )
+sq.With(subordinates)
+    Select(
+        subordinates["employee_id"],
+        subordinates["manager_id"],
+        subordinates["full_name"],
+    ).
+    From(subordinates)
+</code></pre>
+
+  <p></p>
+  Just like with subqueries, if you reference a column that is not actually in the CTE you will get a <code>:blank:</code> in the generated SQL:
+  <pre><code class="language-go">cte1 := sq.
+    Select(tbl.COLUMN_1).
+    From(tbl).
+    Where(tbl.COLUMN_2.Eq(tbl.COLUMN_3)).
+    CTE("cte1")
+cte2 := sq.SelectAll().From(tbl).CTE("cte2")
+sq.With(cte1, cte2).Select(cte1["column_xyz"]).From(cte1)
+</code></pre>
+  Equivalent SQL:
+  <pre><code class="language-sql">WITH cte1 AS (
+    SELECT tbl.column_1
+    FROM tbl
+    WHERE tbl.column_2 = tbl.column3
+), cte2 AS (
+    SELECT * FROM tbl
+)
+SELECT :blank: FROM cte1
+</code></pre>
+
+  <p></p>
+  Both <a href="/sq/sql-expressions/subqueries.html">subqueries</a> and CTEs are not type safe; their columns are only resolved at runtime. If you need type safe column references you should turn your subqueries and CTEs into SQL views instead, because table definitions can be generated from views.
+  <div class="flex justify-between">
+    <div><a href="/sq/sql-expressions/subqueries.html">&lt; Prev: Subqueries</a></div>
+    <div><a href="/sq#sql-expressions">Up: SQL Expressions</a></div>
+    <div><a href="/sq/sql-expressions/order-by.html">Next: ORDER BY &gt;</a></div>
+  </div>
+  <script src="/prismjs/prism.js"></script>
+</body>
+</html>

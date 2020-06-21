@@ -1,0 +1,71 @@
+tables, fields and predicates
+ExpandValues
+    - package specific types
+    - slices
+    - everything else
+query builder reference
+
+** make sure anything that can be aliased is explicitly mentioned that it can do so **
+
+DB conn
+    Make sure to include how to open a DB conn in the quickstart
+SELECT/RETURNING mapper and accumulator
+Common comparison operators
+Where (implicit And)
+And/Or
+Fetch and Exec
+    Early termination
+Select custom expressions
+    - Select Exists
+        - btw for postgres you can just use Exec with RowsAffected
+Row
+    - supported types
+    - custom driver.Valuer types
+Union/Intersect/Except
+    - Not suitable for selectx/returningx, only use ToSQL
+Case statement
+Aggregate functions
+Window functions
+Arrays
+[]Byte
+Enums
+JSON
+Returning
+PL/pgSQL functions
+Common Table Expressions
+Subqueries
+In
+Custom SQL fragments
+Logging
+Common Logger/DB
+    - Tx will override
+Joins/Custom Joins
+Recovering SQL error codes
+    Example: how to check if the returned error was due to a foreign key constraint violation
+
+Select
+    Select Distinct/ Select Distinct On
+Insert
+    InsertRow
+    Upsert
+        Conflict Fields
+            Conflict Predicates
+        Constraint Name
+        Do Update
+            Resolution Predicates
+        Do Nothing
+Update
+    Update with join
+Delete
+    Delete with join
+    Multi-table delete
+
+FAQ section, with links to the documentation where relevant
+- How do I unset a field?
+- How do I exit a Fetch loop early?
+
+Neat tricks:
+Group By into a Go slice
+Select Exists() using row.Bool(sq.Exists()) and using Exec(DB, sq.ErowsAffected)
+Ordering by a custom set of strings using array_position and ARRAY
+Custom Fields (e.g. PostGIS column)

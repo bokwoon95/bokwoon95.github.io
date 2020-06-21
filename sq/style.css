@@ -1,0 +1,73 @@
+.sakura-gray {
+  color: #4a4a4a;
+}
+
+.pilcrow:before {
+  content: "#  ";
+}
+
+a.no-underline {
+  text-decoration: none;
+  border-bottom: 0;
+}
+
+.f12px {
+  font-size: 13px !important;
+}
+
+@media screen and (min-width: 60em) {
+  /* godly trick to extend child width beyond parent width 👍 */
+  .wide-width-l {
+    width: 90vw;
+    position: relative;
+    left: calc(-45vw + 50%);
+  }
+}
+
+/* https://css-tricks.com/quick-css-trick-how-to-center-an-object-exactly-in-the-center/ 👍*/
+.centered {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.full-page-width {
+  width: 100%;
+  overflow: hidden;
+  background-color: #ccc;
+  height: 500px;
+}
+
+.center-content-container {
+  width: 260px;
+  margin: 0 auto;
+}
+
+.content-container {
+  width: 100%;
+  background-color: #aaa;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+.extended-content-container {
+  width: 500%;
+  margin-left: -200%;
+  background-color: #aaa;
+  padding: 20px;
+}
+
+.content {
+  width: 100%;
+  height: 100px;
+  background-color: #ec008b;
+  text-align: center;
+}
+
+.extended-content {
+  width: 100%;
+  height: 100px;
+  background-color: #ec008b;
+  text-align: center;
+}

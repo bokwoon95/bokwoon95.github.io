@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/sq/favicon/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/sq/favicon/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/sq/favicon/favicon-16x16.png">
+  <link rel="manifest" href="/sq/favicon/site.webmanifest">
+  <link rel="stylesheet" href="/prismjs/atom-dark.css">
+  <link rel="stylesheet" href="/tachyons.css">
+  <link rel="stylesheet" href="/sakura.css">
+  <link rel="stylesheet" href="/sq/style.css">
+  <title>sq - CASE</title>
+</head>
+<body>
+  <div class="flex justify-between">
+    <div><a href="/sq/sql-expressions/union.html">&lt; Prev: UNION, INTERSECT, EXCEPT</a></div>
+    <div><a href="/sq#sql-expressions">Up: SQL Expressions</a></div>
+    <div><a href="/sq/sql-expressions/plpgsql.html">Next: PL/pgSQL functions &gt;</a></div>
+  </div>
+  <h1>SQL Expressions: CASE</h1>
+  Both types of CASE expressions are supported:
+    <pre><code class="language-go">u := tables.USERS().As("u")
+// 'simple' CASE
+// CASE u.username
+//     WHEN 'bob' THEN 1
+//     WHEN 'alice' THEN 2
+//     ELSE 3
+// END
+Case(u.USERNAME).
+    When("bob", 1).
+    When("alice", 2).
+    Else(3)
+
+// general CASE
+// CASE
+//     WHEN u.username = 'bob' THEN 'one'
+//     WHEN u.username = 'alice' THEN 'two'
+//     ELSE 'three'
+// END AS 'case_expr'
+CaseWhen(u.USERNAME.EqString("bob"), "one").
+    When(u.USERNAME.EqString("alice"), "two").
+    Else("three").
+    As("case_expr") // &lt;-- aliasing a CASE expression
+</code></pre>
+  <div class="flex justify-between">
+    <div><a href="/sq/sql-expressions/union.html">&lt; Prev: UNION, INTERSECT, EXCEPT</a></div>
+    <div><a href="/sq#sql-expressions">Up: SQL Expressions</a></div>
+    <div><a href="/sq/sql-expressions/plpgsql.html">Next: PL/pgSQL functions &gt;</a></div>
+  </div>
+  <script src="/prismjs/prism.js"></script>
+</body>
+</html>

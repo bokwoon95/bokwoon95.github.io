@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/sq/favicon/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/sq/favicon/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/sq/favicon/favicon-16x16.png">
+  <link rel="manifest" href="/sq/favicon/site.webmanifest">
+  <link rel="stylesheet" href="/prismjs/atom-dark.css">
+  <link rel="stylesheet" href="/tachyons.css">
+  <link rel="stylesheet" href="/sakura.css">
+  <link rel="stylesheet" href="/sq/style.css">
+  <title>sq - TIMESTAMPTZ/DATETIME</title>
+</head>
+<body>
+  <div class="flex justify-between">
+    <div><a href="/sq/column-types/strings.html">&lt; Prev: Strings</a></div>
+    <div><a href="/sq#column-types">Up: Column Types</a></div>
+    <div><a href="/sq/column-types/array.html">Next: ARRAY &gt;</a></div>
+  </div>
+  <h1>Column Types: TIMESTAMPTZ/DATETIME</h1>
+  The sq representation of all datetime types (TIMESTAMPTZ, DATE, etc) is the TimeField. You can convert a time.Time into a TimeField:
+  <pre><code class="language-go">func Time(t time.Time) TimeField</code></pre>
+  Here are the available <a href="/sq/basics/tables-fields-and-predicates.html#predicate">Predicate</a> operations on a TimeField:
+  <pre class="wide-width-l"><code class="language-go">func (f TimeField) IsNull() Predicate    // f IS NULL
+func (f TimeField) IsNotNull() Predicate // f IS NOT NULL
+
+// TimeField
+func (f TimeField) Eq(field TimeField) Predicate                       // f = field
+func (f TimeField) Ne(field TimeField) Predicate                       // f &lt;&gt; field
+func (f TimeField) Gt(field TimeField) Predicate                       // f &gt; field
+func (f TimeField) Ge(field TimeField) Predicate                       // f &gt;= field
+func (f TimeField) Lt(field TimeField) Predicate                       // f &lt; field
+func (f TimeField) Le(field TimeField) Predicate                       // f &lt;= field
+func (f TimeField) Between(start, end TimeField) Predicate             // f BETWEEN start AND end
+func (f TimeField) NotBetween(start, end TimeField) Predicate          // f NOT BETWEEN start AND end
+func (f TimeField) BetweenSymmetric(start, end TimeField) Predicate    // f BETWEEN SYMMETRIC start AND end
+func (f TimeField) NotBetweenSymmetric(start, end TimeField) Predicate // f NOT BETWEEN SYMMETRIC start AND end
+
+// time.Time
+func (f TimeField) EqTime(t time.Time) Predicate                           // f = s
+func (f TimeField) NeTime(t time.Time) Predicate                           // f &lt;&gt; s
+func (f TimeField) GtTime(t time.Time) Predicate                           // f &gt; s
+func (f TimeField) GeTime(t time.Time) Predicate                           // f &gt;= s
+func (f TimeField) LtTime(t time.Time) Predicate                           // f &lt; s
+func (f TimeField) LeTime(t time.Time) Predicate                           // f &lt;= s
+func (f TimeField) BetweenTime(start, end time.Time) Predicate             // f BETWEEN start AND end
+func (f TimeField) NotBetweenTime(start, end time.Time) Predicate          // f NOT BETWEEN start AND end
+func (f TimeField) BetweenSymmetricTime(start, end time.Time) Predicate    // f BETWEEN SYMMETRIC start AND end
+func (f TimeField) NotBetweenSymmetricTime(start, end time.Time) Predicate // f NOT BETWEEN SYMMETRIC start AND end
+</code></pre>
+  <div class="flex justify-between">
+    <div><a href="/sq/column-types/strings.html">&lt; Prev: Strings</a></div>
+    <div><a href="/sq#column-types">Up: Column Types</a></div>
+    <div><a href="/sq/column-types/array.html">Next: ARRAY &gt;</a></div>
+  </div>
+  <script src="/prismjs/prism.js"></script>
+</body>
+</html>

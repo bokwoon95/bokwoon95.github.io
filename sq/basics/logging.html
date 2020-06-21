@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/sq/favicon/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/sq/favicon/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/sq/favicon/favicon-16x16.png">
+  <link rel="manifest" href="/sq/favicon/site.webmanifest">
+  <link rel="stylesheet" href="/prismjs/atom-dark.css">
+  <link rel="stylesheet" href="/tachyons.css">
+  <link rel="stylesheet" href="/sakura.css">
+  <link rel="stylesheet" href="/sq/style.css">
+  <title>sq - Logging</title>
+</head>
+<body>
+  <div class="flex justify-between">
+    <div><a href="/sq/basics/fetch-and-exec.html">&lt; Prev: Fetch and Exec</a></div>
+    <div><a href="/sq#basics">Up: Basics</a></div>
+    <div><a href="/sq/basics/checking-sql-errors.html">Next: Checking for specific SQL errors &gt;</a></div>
+  </div>
+  <h1>Basics: Logging</h1>
+  <h3>
+    <a id="contents" href="#contents" class="sakura-gray no-underline pilcrow">
+      Contents
+    </a>
+  </h3>
+  <ul>
+    <li><a href="#overview">Overview</a></li>
+    <li><a href="#log-flag">LogFlag</a></li>
+    <!-- <li><a href="#custom&#45;loggers">Custom Loggers</a></li> -->
+  </ul>
+
+  <div>
+    <h3 class="dib">
+      <a id="overview" href="#overview" class="sakura-gray no-underline pilcrow">
+        Overview
+      </a>
+    </h3>
+    &nbsp;&nbsp;<a href="#contents">contents</a>
+  </div>
+  sq comes with a built-in logger. It logs the query to stdout, so you can use it to debug if something was wrong.
+  <u>It does not log errors</u>. It returns errors, and it is up to you if you want to log the error.
+  The logger can be enabled on an individual query with <code>WithDefaultLog(&lt;LogFlag&gt;)</code>:
+  <pre><code class="language-go">// No logging
+Select(u.USER_ID, u.NAME).From(u).Where(u.USER_ID.LtInt(15))
+// With logging
+WithDefaultLog(0).Select(u.USER_ID, u.NAME).From(u).Where(u.USER_ID.LtInt(15))
+</code></pre>
+  Which will result in the output looking like
+  <pre><code>2020/06/14 17:20:57 my_file.go:315 [sq] SELECT u.user_id, u.name FROM public.users AS u WHERE u.user_id &lt; $1 [15]</code></pre>
+  If you want to enable logging for every query, see <a href="/sq/query-building/common-query-builder.html">Building off a common query builder</a>.
+
+  <div>
+    <h3 class="dib">
+      <a id="log-flag" href="#log-flag" class="sakura-gray no-underline pilcrow">LogFlag</a>
+    </h3>
+    &nbsp;&nbsp;<a href="#contents">contents</a>
+  </div>
+  There are various LogFlags that affect the output of the logger:
+  <pre><code class="language-go">const (
+    // Interpolate the args into the query
+    Linterpolate LogFlag = 1 &lt;&lt; iota
+
+    // Show the query before interpolation, after interpolation and time taken
+    Lstats
+
+    // Show the first 5 rows of the result
+    Lresults
+
+    // Combine both Lstats and Lresults
+    Lverbose = Lstats | Lresults
+)
+</code></pre>
+  Example of what the logger with <code>Lverbose</code> looks like (thanks to <a href="https://www.jooq.org/doc/3.13/manual/sql-execution/logging/">jOOQ</a> for the idea)
+  <pre><code>2020/06/14 17:20:57 my_file.go:315 [sq]
+----[ Executing query ]----
+SELECT u.user_id, u.name FROM public.users AS u WHERE u.user_id &lt; $1 [15]
+----[ with bind values ]----
+SELECT u.user_id, u.name FROM public.users AS u WHERE u.user_id &lt; 15
+2020/06/14 17:20:57 my_file.go:315 [sq]
+----[ Row 1 ]----
+u.user_id: 1
+u.name: Tom
+----[ Row 2 ]----
+u.user_id: 2
+u.name: Dick
+----[ Row 3 ]----
+u.user_id: 3
+u.name: Harry
+----[ Row 4 ]----
+u.user_id: 4
+u.name: John
+----[ Row 5 ]----
+u.user_id: 5
+u.name: Jane
+...
+(Fetched 14 rows in 6.568672ms)
+</code></pre>
+
+<!--   <div> -->
+<!--     <h3 class="dib"> -->
+<!--       <a id="custom&#45;loggers" href="#custom&#45;loggers" class="sakura&#45;gray no&#45;underline pilcrow">Custom Loggers</a> -->
+<!--     </h3> -->
+<!--     &#38;nbsp;&#38;nbsp;<a href="#contents">contents</a> -->
+<!--   </div> -->
+<!--   sq accepts custom loggers matching the interface -->
+<!--   <pre><code class="language&#45;go">type Logger interface { -->
+<!-- 	Output(calldepth int, s string) error -->
+<!-- } -->
+<!--  -->
+<!-- // Use it like this -->
+<!-- WithLog(customLogger, Lverbose).Select(u.USER_ID, u.NAME).From(u).Where(u.USER_ID.LtInt(15)) -->
+<!-- </code></pre> -->
+<!--   <p> -->
+<!--     The semantics of <code>Output</code> are the same as that of the <a href="https://stackoverflow.com/a/42762815">stdlib's log <code>Output</code></a>. -->
+<!--     The basic <a href="https://golang.org/pkg/log/#New"><code>log.New()</code></a> is therefore compatible with sq's Logger interface, and the <a href="https://golang.org/pkg/log/#pkg&#45;constants">flags for the stdlib logger</a> work just as you would expect. -->
+<!--   </p> -->
+<!--   <p> -->
+<!--     Unfortunately that means that 3rd party logging libraries that do not provide the Output method (like logrus: <a href="https://github.com/sirupsen/logrus/issues/118">https://github.com/sirupsen/logrus/issues/118</a>) are not compatible. -->
+<!--     To work around this you can embed the Logger in your custom struct to implement the <code>Output</code> method. It would still work exactly like the old *Logger, but you can use it in sq: -->
+<!--     <pre><code class="language&#45;go">type Logger struct { -->
+<!--   *logrus.Logger -->
+<!-- } -->
+<!--  -->
+<!-- func (l *Logger) Output(_ int, s string) error { -->
+<!--     l.Printf(s) -->
+<!--     return nil -->
+<!-- } -->
+<!-- </code></pre> -->
+<!--   </p> -->
+  <div class="flex justify-between">
+    <div><a href="/sq/basics/fetch-and-exec.html">&lt; Prev: Fetch and Exec</a></div>
+    <div><a href="/sq#basics">Up: Basics</a></div>
+    <div><a href="/sq/basics/checking-sql-errors.html">Next: Checking for specific SQL errors &gt;</a></div>
+  </div>
+  <script src="/prismjs/prism.js"></script>
+</body>
+</html>

@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/sq/favicon/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/sq/favicon/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/sq/favicon/favicon-16x16.png">
+  <link rel="manifest" href="/sq/favicon/site.webmanifest">
+  <link rel="stylesheet" href="/prismjs/atom-dark.css">
+  <link rel="stylesheet" href="/tachyons.css">
+  <link rel="stylesheet" href="/sakura.css">
+  <link rel="stylesheet" href="/sq/style.css">
+  <title>sq - Structured Query Builder for Go</title>
+</head>
+<body>
+  <h1>Documentation for sq</h1>
+  <div>Github Link: <a href="https://github.com/bokwoon95/go-structured-query">github.com/bokwoon95/go-structured-query</a></div>
+  <p></p>
+
+  <!-- <p> -->
+  <!--   <div><a href="/sq/quickstart">Quickstart</a></div> -->
+  <!--   <div><a href="/sq/basics/tables&#45;fields&#45;and&#45;predicates.html#query&#45;builder&#45;reference">Query Builder reference</a></div> -->
+  <!-- </p> -->
+
+  <h3><a id="basics" href="#basics" class="sakura-gray no-underline pilcrow">Basics</a></h3>
+  <ul>
+    <li>
+      <a href="/sq/basics/generating-table-types.html">Generating table types (<span class="dark-red">important</span>)</a>
+    <li>
+      <a href="/sq/basics/tables-fields-and-predicates.html">Tables, fields and predicates</a>
+      <ul class="mb0">
+        <li class="mb0"><a href="/sq/basics/tables-fields-and-predicates.html#overview">Overview</a></li>
+        <li class="mb0"><a href="/sq/basics/tables-fields-and-predicates.html#comparison-operator-reference">Comparison Operator Reference</a></li>
+        <li class="mb0"><a href="/sq/basics/tables-fields-and-predicates.html#query-builder-reference">Query Builder Reference</a></li>
+      </ul>
+    </li>
+    <li>
+      <a href="/sq/basics/sql-escape-hatch.html">SQL escape hatch</a>
+      <ul class="mb0">
+        <li class="mb0"><a href="/sq/basics/sql-escape-hatch.html#fieldf-and-predicatef"><code>Fieldf</code> and <code>Predicatef</code></a></li>
+        <li class="mb0"><a href="/sq/basics/sql-escape-hatch.html#complex-query">Building a complex query</a></li>
+      </ul>
+    </li>
+    <li><a href="/sq/basics/database-connection.html">Database connection</a></li>
+    <li>
+      <a href="/sq/basics/struct-mapping.html">Struct mapping</a>
+      <ul class="mb0">
+        <li class="mb0"><a href="/sq/basics/struct-mapping.html#overview">Overview</a></li>
+        <li class="mb0"><a href="/sq/basics/struct-mapping.html#how-selectx-works">A mental model of how <code>Selectx</code> works</a></li>
+        <li class="mb0"><a href="/sq/basics/struct-mapping.html#terminating-early">Terminating <code>rows.Next()</code> early</a></li>
+        <li class="mb0"><a href="/sq/basics/struct-mapping.html#nulls">Null values</a></li>
+        <li class="mb0"><a href="/sq/basics/struct-mapping.html#reusable-mappers">Reusable mapper function</a></li>
+        <li class="mb0"><a href="/sq/basics/struct-mapping.html#sql-expressions">Mapping SQL expressions and sql.Scanner types</a></li>
+        <li class="mb0"><a href="/sq/basics/struct-mapping.html#row-reference"><code>*Row</code> Reference</a></li>
+      </ul>
+    </li>
+    <li>
+      <a href="/sq/basics/fetch-and-exec.html">Fetch and Exec</a>
+      <ul class="mb0">
+        <li class="mb0"><a href="/sq/basics/fetch-and-exec.html#overview">Overview</a></li>
+        <li class="mb0"><a href="/sq/basics/fetch-and-exec.html#exec-flag">ExecFlag</a></li>
+        <li class="mb0"><a href="/sq/basics/fetch-and-exec.html#rows-affected">Getting the number of rows affected by INSERT, UPDATE or DELETE</a></li>
+      </ul>
+    </li>
+    <li>
+      <a href="/sq/basics/logging.html">Logging</a>
+      <ul class="mb0">
+        <li><a href="/sq/basics/logging.html#overview">Overview</a></li>
+        <li><a href="/sq/basics/logging.html#log-flag">LogFlag</a></li>
+        <!-- <li><a href="/sq/basics/logging.html#custom&#45;loggers">Custom Loggers</a></li> -->
+      </ul>
+    </li>
+    <li>
+      <a href="/sq/basics/checking-sql-errors.html">Checking for specific SQL errors</a>
+      <ul class="mb0">
+        <li class="mb0"><a href="/sq/basics/checking-sql-errors.html#foreign-key">Foreign Key Violation</a></li>
+        <li class="mb0"><a href="/sq/basics/checking-sql-errors.html#unique-key">Unique Key Violation</a></li>
+      </ul>
+    </li>
+  </ul>
+
+  <h3><a id="query-building" href="#query-building" class="sakura-gray no-underline pilcrow">Query Building</a></h3>
+  <ul>
+    <li>
+      <a href="/sq/query-building/select.html">SELECT</a>
+      <ul class="mb0">
+        <li class="mb0"><a href="/sq/query-building/select.html#basic-example">Basic Example</a></li>
+        <li class="mb0"><a href="/sq/query-building/select.html#distinct">SELECT DISTINCT</a></li>
+        <li class="mb0"><a href="/sq/query-building/select.html#distinct-on">SELECT DISTINCT ON</a>&nbsp;<span class="f4">(postgres only)</span></li>
+        <li class="mb0"><a href="/sq/query-building/select.html#exists">SELECT EXISTS</a></li>
+        <li class="mb0"><a href="/sq/query-building/select.html#clause-manipulation">Clause manipulation</a></li>
+      </ul>
+    </li>
+    <li>
+      <a href="/sq/query-building/insert.html">INSERT</a>
+      <ul class="mb0">
+        <li class="mb0"><a href="/sq/query-building/insert.html#basic-example">Basic Example</a></li>
+        <li class="mb0"><a href="/sq/query-building/insert.html#last-insert-id">Getting the last inserted AUTO_INCREMENT/SERIAL ID</a></li>
+        <li class="mb0"><a href="/sq/query-building/insert.html#ignore-duplicates">INSERT and ignore duplicates</a></li>
+        <li class="mb0"><a href="/sq/query-building/insert.html#upsert">Upsert</a></li>
+        <li class="mb0"><a href="/sq/query-building/insert.html#insert-from-select">INSERT from SELECT</a></li>
+        <li class="mb0"><a href="/sq/query-building/insert.html#insert-row">Binding values to columns</a></li>
+        <li class="mb0"><a href="/sq/query-building/insert.html#clause-manipulation">Clause manipulation</a></li>
+      </ul>
+    </li>
+    <li>
+      <a href="/sq/query-building/update.html">UPDATE</a>
+      <ul class="mb0">
+        <li class="mb0"><a href="/sq/query-building/update.html#basic-example">Basic Example</a></li>
+        <li class="mb0"><a href="/sq/query-building/update.html#join">UPDATE with join</a></li>
+        <li class="mb0"><a href="/sq/query-building/update.html#multi-table-update">Multi-table UPDATE</a>&nbsp;<span class="f4">(mysql only)</span></li>
+        <li class="mb0"><a href="/sq/query-building/update.html#clause-manipulation">Clause manipulation</a></li>
+      </ul>
+    </li>
+    <li>
+      <a href="/sq/query-building/delete.html">DELETE</a>
+      <ul class="mb0">
+        <li class="mb0"><a href="/sq/query-building/delete.html#basic-example">Basic Example</a></li>
+        <li class="mb0"><a href="/sq/query-building/delete.html#join">DELETE with join</a></li>
+        <li class="mb0"><a href="/sq/query-building/delete.html#multi-table-delete">Multi-table DELETE</a>&nbsp;<span class="f4">(mysql only)</span></li>
+        <li class="mb0"><a href="/sq/query-building/delete.html#clause-manipulation">Clause manipulation</a></li>
+      </ul>
+    </li>
+    <li>
+      <a href="/sq/query-building/common-query-builder.html">Building off a common query builder</a>
+    </li>
+    <li>
+      <a href="/sq/query-building/reusing-where.html">Reusing the same WHERE predicate across SELECT/UPDATE/DELETE</a>
+    </li>
+  </ul>
+
+  <h3><a id="sql-expressions" href="#sql-expressions" class="sakura-gray no-underline pilcrow">SQL Expressions</a></h3>
+  <ul>
+    <li><a href="/sq/sql-expressions/aggregate-functions.html">Aggregate functions</a></li>
+    <li>
+      <a href="/sq/sql-expressions/window-functions.html">Window functions</a>
+      <ul class="mb0">
+        <li class="mb0"><a href="/sq/sql-expressions/window-functions.html#overview">Overview</a></li>
+        <li class="mb0"><a href="/sq/sql-expressions/window-functions.html#named-window">Named window</a></li>
+      </ul>
+    </li>
+    <li><a href="/sq/sql-expressions/subqueries.html">Subqueries</a></li>
+    <li><a href="/sq/sql-expressions/common-table-expressions.html">WITH (Common Table Expressions)</a></li>
+    <li><a href="/sq/sql-expressions/order-by.html">ORDER BY</a></li>
+    <li><a href="/sq/sql-expressions/in.html">IN</a></li>
+    <li><a href="/sq/sql-expressions/union.html">UNION, INTERSECT, EXCEPT</a></li>
+    <li><a href="/sq/sql-expressions/case.html">CASE</a></li>
+    <li><a href="/sq/sql-expressions/plpgsql.html">calling PL/pgSQL functions</a></li>
+  </ul>
+
+  <h3><a id="column-types" href="#column-types" class="sakura-gray no-underline pilcrow">Column Types</a></h3>
+  <ul>
+    <li><a href="/sq/column-types/numbers.html">Numbers</a></li>
+    <li><a href="/sq/column-types/strings.html">Strings</a></li>
+    <li><a href="/sq/column-types/time.html">TIMESTAMPTZ/DATETIME</a></li>
+    <li><a href="/sq/column-types/array.html">ARRAY</a>&nbsp;<span class="f4">(postgres only)</span></li>
+    <li><a href="/sq/column-types/json.html">JSON</a></li>
+    <li><a href="/sq/column-types/enum.html">ENUM</a></li>
+    <li><a href="/sq/column-types/bytes.html">BYTEA, BLOB</a></li>
+  </ul>
+
+</body>
+</html>

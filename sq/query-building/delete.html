@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/sq/favicon/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/sq/favicon/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/sq/favicon/favicon-16x16.png">
+  <link rel="manifest" href="/sq/favicon/site.webmanifest">
+  <link rel="stylesheet" href="/prismjs/atom-dark.css">
+  <link rel="stylesheet" href="/tachyons.css">
+  <link rel="stylesheet" href="/sakura.css">
+  <link rel="stylesheet" href="/sq/style.css">
+  <title>sq - DELETE</title>
+</head>
+<body>
+  <div class="flex justify-between">
+    <div><a href="/sq/query-building/update.html">&lt; Prev: UPDATE</a></div>
+    <div><a href="/sq#query-building">Up: Query Building</a></div>
+    <div><a href="/sq/query-building/common-query-builder.html">Next: Building off a common query builder &gt;</a></div>
+  </div>
+  <h1>Query Building: DELETE</h1>
+  <h3>
+    <a id="contents" href="#contents" class="sakura-gray no-underline pilcrow">
+      Contents
+    </a>
+  </h3>
+  <ul>
+    <li><a href="#basic-example">Basic example</a></li>
+    <li><a href="#join">DELETE with join</a></li>
+    <li><a href="#multi-table-delete">Multi-table DELETE</a>&nbsp;<span class="f4">(MySQL only)</span></li>
+    <li><a href="#clause-manipulation">Clause manipulation</a></li>
+  </ul>
+
+  <div>
+    <h3 class="dib">
+      <a id="basic-example" href="#basic-example" class="sakura-gray no-underline pilcrow">
+        Basic example
+      </a>
+    </h3>
+    &nbsp;&nbsp;<a href="#contents">contents</a>
+  </div>
+  <p>
+    Note: if you are using MySQL 8.0.16 and below you won't be able to alias your DELETE table (<a href="https://bugs.mysql.com/bug.php?id=89410">https://bugs.mysql.com/bug.php?id=89410</a>).
+  </p>
+  SQL
+  <pre><code class="language-sql">DELETE FROM public.users
+WHERE email = 'bob@email.com';
+</code></pre>
+  Go
+  <pre><code class="language-go">u := tables.USERS()
+
+// ...if you use ToSQL
+query, args := sq.DeleteFrom(u).
+    Where(u.EMAIL.EqString("bob@email.com")).
+    ToSQL()
+_, err := DB.Exec(query, args...)
+if err != nil {
+    /* handle error */
+}
+
+// ...if you use Exec
+_, err := sq.DeleteFrom(u).
+    Where(u.EMAIL.EqString("bob@email.com")).
+    Exec(DB, 0)
+if err != nil {
+    /* handle error */
+}
+</code></pre>
+
+  <div>
+    <h3 class="dib">
+      <a id="join" href="#join" class="sakura-gray no-underline pilcrow">
+        DELETE with join
+      </a>
+    </h3>
+    &nbsp;&nbsp;<a href="#contents">contents</a>
+  </div>
+  <p>
+    In MySQL, if you are using JOINs I recommend you do not alias the table you are deleting from. Doing so will necessitate a different query structure, and that might trip you up. For completion, both examples (aliased and unaliased) will be shown below.
+  </p>
+  <p>
+    For Postgres, it doesn't matter. You can alias or not alias the table, the query structure stays the same.
+  </p>
+  SQL
+  <pre><code class="language-sql">--------------
+-- Postgres --
+--------------
+
+DELETE FROM public.users AS u
+USING public.user_roles AS ur
+JOIN public.user_roles_students AS urs ON urs.user_role_id = ur.user_role_id
+WHERE u.user_id = ur.user_id AND urs.team_id = 15;
+
+-----------
+-- MySQL --
+-----------
+
+-- unaliased
+DELETE FROM public.users
+JOIN public.user_roles AS ur ON ur.user_id = users.user_id
+JOIN public.user_roles_students AS urs ON urs.user_role_id = ur.user_role_id
+SET u.name = 'bob', u.password = '1234'
+WHERE urs.team_id = 15;
+
+-- aliased
+DELETE FROM u
+USING public.users AS u
+JOIN public.user_roles AS ur ON ur.user_id = u.user_id
+JOIN public.user_roles_students AS urs ON urs.user_role_id = ur.user_role_id
+SET u.name = 'bob', u.password = '1234'
+WHERE urs.team_id = 15;
+</code></pre>
+  Go
+  <pre><code class="language-go">//----------//
+// Postgres //
+//----------//
+
+u := tables.USERS().As("u")
+ur := tables.USER_ROLES().As("ur")
+urs := tables.USER_ROLES_STUDENTS().As("urs")
+
+// ...if you use ToSQL
+query, args := sq.DeleteFrom(u).
+    Using(ur).
+    Join(urs, urs.USER_ROLE_ID.Eq(ur.USER_ROLE_ID)).
+    Where(u.USER_ID.Eq(ur.USER_ID), urs.TEAM_ID.EqInt(15)).
+    ToSQL()
+_, err := DB.Exec(query, args...)
+if err != nil {
+    /* handle error */
+}
+
+// ...if you use Exec
+_, err := sq.Update(u).
+    Using(ur).
+    Join(urs, urs.USER_ROLE_ID.Eq(ur.USER_ROLE_ID)).
+    Where(u.USER_ID.Eq(ur.USER_ID), urs.TEAM_ID.EqInt(15)).
+    Exec(DB, 0)
+if err != nil {
+    /* handle error */
+}
+
+//-------//
+// MySQL //
+//-------//
+
+// unaliased
+u := tables.USERS()
+ur := tables.USER_ROLES().As("ur")
+urs := tables.USER_ROLES_STUDENTS().As("urs")
+
+// ...if you use ToSQL
+query, args := sq.DeleteFrom(u).
+    Join(ur, ur.USER_ID.Eq(u.USER_ID)).
+    Join(urs, urs.USER_ROLE_ID.Eq(ur.USER_ROLE_ID)).
+    Where(urs.TEAM_ID.EqInt(15)).
+    ToSQL()
+_, err := DB.Exec(query, args...)
+if err != nil {
+    /* handle error */
+}
+
+// ...if you use Exec
+_, err := sq.DeleteFrom(u).
+    Join(ur, ur.USER_ID.Eq(u.USER_ID)).
+    Join(urs, urs.USER_ROLE_ID.Eq(ur.USER_ROLE_ID)).
+    Where(urs.TEAM_ID.EqInt(15)).
+    Exec(DB, 0)
+if err != nil {
+    /* handle error */
+}
+
+// aliased
+u := tables.USERS().As("u")
+ur := tables.USER_ROLES().As("ur")
+urs := tables.USER_ROLES_STUDENTS().As("urs")
+
+// ...if you use ToSQL
+query, args := sq.DeleteFrom(u).
+    Using(u).
+    Join(ur, ur.USER_ID.Eq(u.USER_ID)).
+    Join(urs, urs.USER_ROLE_ID.Eq(ur.USER_ROLE_ID)).
+    Where(urs.TEAM_ID.EqInt(15)).
+    ToSQL()
+_, err := DB.Exec(query, args...)
+if err != nil {
+    /* handle error */
+}
+
+// ...if you use Exec
+_, err := sq.DeleteFrom(u).
+    Using(u).
+    Join(ur, ur.USER_ID.Eq(u.USER_ID)).
+    Join(urs, urs.USER_ROLE_ID.Eq(ur.USER_ROLE_ID)).
+    Where(urs.TEAM_ID.EqInt(15)).
+    Exec(DB, 0)
+if err != nil {
+    /* handle error */
+}
+</code></pre>
+
+  <div>
+    <h3 class="dib">
+      <a id="multi-table-delete" href="#multi-table-delete" class="sakura-gray no-underline pilcrow">
+        Multi-table DELETE
+      </a>
+    </h3>
+    &nbsp;&nbsp;<a href="#contents">contents</a>
+  </div>
+  <p>
+    Note: Multi-table DELETE is a mysql-only feature.
+  </p>
+  <p>
+    Similar to multi-table UPDATE, MySQL can also do multi-table DELETE. However, I've found it to be of limited practicality due to foreign key constraints. <a href="https://stackoverflow.com/a/6881990">The order of table deletion is not controllable</a>, and the query optimizer may decide on an order that violates a foreign key constraint and cause the DELETE to fail. The MySQL docs mention that the only way to get around this is to do single-table DELETEs.
+  </p>
+  <p>
+    You will not be able to use the ORDER BY and LIMIT clauses in a multi-table DELETE.
+  </p>
+  SQL
+  <pre><code class="language-sql">DELETE FROM u, ur, urs
+USING public.users AS u
+JOIN public.user_roles AS ur ON ur.user_id = u.user_id
+JOIN public.user_roles_students AS urs ON urs.user_role_id = ur.user_role_id
+WHERE urs.team_id = 15;
+</code></pre>
+  Go
+  <pre><code class="language-go">u := tables.USERS().As("u")
+ur := tables.USER_ROLES().As("ur")
+urs := tables.USER_ROLES_STUDENTS().As("urs")
+
+// ...if you use ToSQL
+query, args := sq.DeleteFrom(u, ur, urs).
+    Using(u).
+    Join(ur, ur.USER_ID.Eq(u.USER_ID)).
+    Join(urs, urs.USER_ROLE_ID.Eq(ur.USER_ROLE_ID)).
+    Where(urs.TEAM_ID.EqInt(15)).
+    ToSQL()
+_, err := DB.Exec(query, args...)
+if err != nil {
+    /* handle error */
+}
+
+// ...if you use Exec
+_, err := sq.DeleteFrom(u, ur, urs).
+    Using(u).
+    Join(ur, ur.USER_ID.Eq(u.USER_ID)).
+    Join(urs, urs.USER_ROLE_ID.Eq(ur.USER_ROLE_ID)).
+    Where(urs.TEAM_ID.EqInt(15)).
+    Exec(DB, 0)
+if err != nil {
+    /* handle error */
+}
+</code></pre>
+
+  <div>
+    <h3 class="dib">
+      <a id="clause-manipulation" href="#clause-manipulation" class="sakura-gray no-underline pilcrow">
+        Clause manipulation
+      </a>
+    </h3>
+    &nbsp;&nbsp;<a href="#contents">contents</a>
+  </div>
+  Clauses are just struct fields, you can either use method chaining to add clauses or manipulate the struct fields directly.
+  <br>
+  <a id="clauses" href="#clauses" class="sakura-gray no-underline"><b>Clauses:</b></a>
+  <a href="#clause-with">WITH</a>,
+  <a href="#clause-delete-from-postgres">DELETE FROM (postgres)</a>,
+  <a href="#clause-delete-from-mysql">DELETE FROM (mysql)</a>,
+  <a href="#clause-using">USING</a>,
+  <a href="#clause-join">JOIN</a>,
+  <a href="#clause-where">WHERE</a>,
+  <a href="#clause-order-by">ORDER BY (mysql only)</a>,
+  <a href="#clause-limit">LIMIT (mysql only)</a>,
+  <a href="#clause-returning">RETURNING (postgres only)</a>,
+  <ul>
+    <li>
+      <div>
+        <a id="clause-with" href="#clause-with" class="sakura-gray no-underline"><b>WITH</b></a>
+        &nbsp;&nbsp;<a href="#clauses">clauses</a>
+      </div>
+      <div>For more information see <a href="/sq/sql-expressions/common-table-expressions.html">Common Table Expressions</a>.</div>
+      <pre><code class="language-go">var q sq.InsertQuery
+
+// Adding
+
+q = q.With(cte1, cte2, cte3)
+// is equivalent to //
+q = q.With(cte1).With(cte2).With(cte3)
+// is equivalent to //
+q.CTEs = []sq.CTE{cte1, cte2, cte3}
+
+// Removing
+
+q.CTEs = nil
+</code></pre>
+    </li>
+    <li>
+      <div>
+        <a id="clause-delete-from-postgres" href="#clause-delete-from-postgres" class="sakura-gray no-underline"><b>DELETE FROM (postgres)</b></a>
+        &nbsp;&nbsp;<a href="#clauses">clauses</a>
+      </div>
+      <pre><code class="language-go">var q sq.DeleteQuery
+
+// Adding
+
+q = q.DeleteFrom(table)
+// is equivalent to //
+q.FromTable = table
+
+// Removing
+
+q.FromTable = nil
+</code></pre>
+    </li>
+    <li>
+      <div>
+        <a id="clause-delete-from-mysql" href="#clause-delete-from-mysql" class="sakura-gray no-underline"><b>DELETE FROM (mysql)</b></a>
+        &nbsp;&nbsp;<a href="#clauses">clauses</a>
+      </div>
+      <pre><code class="language-go">var q sq.DeleteQuery
+
+// Adding
+
+/* from one table */
+q = q.DeleteFrom(table)
+// is equivalent to //
+q.FromTables = []sq.BaseTable{table}
+
+/* from multiple tables */
+q = q.DeleteFrom(table1, table2, table3)
+// is equivalent to //
+q = q.DeleteFrom(table1).DeleteFrom(table2).DeleteFrom(table3)
+// is equivalent to //
+q.FromTables = []sq.BaseTable{table1, table2, table3}
+
+// Removing
+
+q.FromTables = nil
+</code></pre>
+    </li>
+    <li>
+      <div>
+        <a id="clause-using" href="#clause-using" class="sakura-gray no-underline"><b>USING</b></a>
+        &nbsp;&nbsp;<a href="#clauses">clauses</a>
+      </div>
+      <pre><code class="language-go">var q sq.DeleteQuery
+
+// Adding
+
+q = q.Using(table)
+// is equivalent to //
+q.UsingTable = table
+
+// Removing
+
+q.UsingTable = nil
+</code></pre>
+    </li>
+    <li>
+      <div>
+        <a id="clause-join" href="#clause-join" class="sakura-gray no-underline"><b>JOIN</b></a>
+        &nbsp;&nbsp;<a href="#clauses">clauses</a>
+      </div>
+      <pre><code class="language-go">var q sq.DeleteQuery
+
+// Adding
+
+q = q.Join(table1, predicate1).
+    LeftJoin(table2, predicate2).
+    FullJoin(table3, predicate3)
+// is equivalent to //
+q.JoinTables = []sq.JoinTable{
+    sq.Join(table1, predicate1),
+    sq.LeftJoin(table2, predicate2),
+    sq.FullJoin(table3, predicate3),
+}
+
+// Removing
+
+q.JoinTables = nil
+</code></pre>
+    </li>
+    <li>
+      <div>
+        <a id="clause-where" href="#clause-where" class="sakura-gray no-underline"><b>WHERE</b></a>
+        &nbsp;&nbsp;<a href="#clauses">clauses</a>
+      </div>
+      <pre><code class="language-go">var q sq.DeleteQuery
+
+// Adding
+
+q = q.Where(predicate1, predicate2, predicate3)
+// is equivalent to //
+q = q.Where(predicate1).Where(predicate2).Where(predicate3)
+// is equivalent to //
+q.WherePredicate.Predicates = []sq.Predicate{
+    predicate1, 
+    predicate2, 
+    predicate3,
+}
+
+// Removing
+
+q.WherePredicate.Predicates = nil
+</code></pre>
+    </li>
+    <li>
+      <div>
+        <a id="clause-order-by" href="#clause-order-by" class="sakura-gray no-underline"><b>ORDER BY (mysql only)</b></a>
+        &nbsp;&nbsp;<a href="#clauses">clauses</a>
+      </div>
+      <pre><code class="language-go">var q sq.DeleteQuery
+
+// Adding
+
+q = q.OrderBy(field1, field2, field3)
+// is equivalent to //
+q = q.OrderBy(field1).OrderBy(field2).OrderBy(field3)
+// is equivalent to //
+q.OrderByFields = []sq.Field{field1, field2, field3}
+
+// Removing
+
+q.OrderByFields = nil
+</code></pre>
+    </li>
+    <li>
+      <div>
+        <a id="clause-limit" href="#clause-limit" class="sakura-gray no-underline"><b>LIMIT (mysql only)</b></a>
+        &nbsp;&nbsp;<a href="#clauses">clauses</a>
+      </div>
+      <pre><code class="language-go">var q sq.DeleteQuery
+
+// Adding
+
+q = q.Limit(10)
+// is equivalent to //
+limit := int64(10)
+q.LimitValue = &amp;limit
+
+// Removing
+
+q.LimitValue = nil
+</code></pre>
+    </li>
+    <li>
+      <div>
+        <a id="clause-returning" href="#clause-returning" class="sakura-gray no-underline"><b>RETURNING (postgres only)</b></a>
+        &nbsp;&nbsp;<a href="#clauses">clauses</a>
+      </div>
+      <pre><code class="language-go">var q sq.DeleteQuery
+
+// Adding
+
+q = q.Returning(field1, field2, field3)
+// is equivalent to //
+q = q.Returning(field1).Returning(field2).Returning(field3)
+// is equivalent to //
+q.ReturningFields = []sq.Field{field1, field2, field3}
+
+// Removing
+
+q.ReturningFields = nil
+</code></pre>
+    </li>
+  </ul>
+
+  <div class="flex justify-between">
+    <div><a href="/sq/query-building/update.html">&lt; Prev: UPDATE</a></div>
+    <div><a href="/sq#query-building">Up: Query Building</a></div>
+    <div><a href="/sq/query-building/common-query-builder.html">Next: Building off a common query builder &gt;</a></div>
+  </div>
+  <script src="/prismjs/prism.js"></script>
+</body>
+</html>

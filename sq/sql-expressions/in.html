@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/sq/favicon/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/sq/favicon/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/sq/favicon/favicon-16x16.png">
+  <link rel="manifest" href="/sq/favicon/site.webmanifest">
+  <link rel="stylesheet" href="/prismjs/atom-dark.css">
+  <link rel="stylesheet" href="/tachyons.css">
+  <link rel="stylesheet" href="/sakura.css">
+  <link rel="stylesheet" href="/sq/style.css">
+  <title>sq - IN</title>
+</head>
+<body>
+  <div class="flex justify-between">
+    <div><a href="/sq/sql-expressions/order-by.html">&lt; Prev: ORDER BY</a></div>
+    <div><a href="/sq#sql-expressions">Up: SQL Expressions</a></div>
+    <div><a href="/sq/sql-expressions/union.html">Next: UNION, INTERSECT, EXCEPT &gt;</a></div>
+  </div>
+  <h1>SQL Expressions: IN</h1>
+  <h3>
+    <a id="contents" href="#contents" class="sakura-gray no-underline pilcrow">
+      Contents
+    </a>
+  </h3>
+  <ul>
+    <li><a href="#overview">Overview</a></li>
+    <li><a href="#in-list">IN list</a></li>
+    <li><a href="#in-slice">IN slice</a></li>
+    <li><a href="#in-subquery">IN subquery</a></li>
+    <li><a href="#tuple-in">Tuple IN (Row Value Expressions)</a></li>
+  </ul>
+
+  <div>
+    <h3 class="dib">
+      <a id="overview" href="#overview" class="sakura-gray no-underline pilcrow">
+        Overview
+      </a>
+    </h3>
+    &nbsp;&nbsp;<a href="#contents">contents</a>
+  </div>
+  <code>.In()</code> is a method that exists on all Fields and also <code>sq.RowValue</code> (see <a href="#tuple-in">Tuple IN</a>).
+  It returns a <a href="/sq/basics/tables-fields-and-predicates.html#predicate">Predicate</a>, which means it can be used anywhere where a Predicate is expected.
+  Note that when literal values are passed into it (for example in a <a href="#in-slice">slice</a>) the values are parameterized, not literally interpolated (<code>IN ($1, $2, $3)</code> and not <code>IN (1, 2, 3)</code>).
+
+  <div>
+    <h3 class="dib">
+      <a id="in-list" href="#in-list" class="sakura-gray no-underline pilcrow">
+        In list
+      </a>
+    </h3>
+    &nbsp;&nbsp;<a href="#contents">contents</a>
+  </div>
+  <pre><code class="language-go">u := tables.USERS().As("u")
+
+// u.user_id IN (u.name, u.email, u.password)
+u.USER_ID.In(sq.RowValue{u.NAME, u.EMAIL, u.PASSWORD})
+
+// u.user_id IN (1, 2, 3)
+u.USER_ID.In(sq.RowValue{1, 2, 3})
+</code></pre>
+
+  <div>
+    <h3 class="dib">
+      <a id="in-slice" href="#in-list" class="sakura-gray no-underline pilcrow">
+        In slice
+      </a>
+    </h3>
+    &nbsp;&nbsp;<a href="#contents">contents</a>
+  </div>
+  In follows the <a href="/sq/basics/sql-escape-hatch.html#slice-expansion">slice expansion rules</a>, so slices are viable arguments.
+  <pre><code class="language-go">u := tables.USERS().As("u")
+
+// u.user_id IN (1, 2, 3)
+userIDs := []int{1, 2, 3}
+u.USER_ID.In(userIDs)
+
+// u.name IN ("tom", "dick", "harry")
+names := []int{"tom", "dick", "harry"}
+u.NAME.In(names)
+</code></pre>
+
+  <div>
+    <h3 class="dib">
+      <a id="in-subquery" href="#in-subquery" class="sakura-gray no-underline pilcrow">
+        In subquery
+      </a>
+    </h3>
+    &nbsp;&nbsp;<a href="#contents">contents</a>
+  </div>
+  <pre><code class="language-go">u := tables.USERS().As("u")
+
+// u.user_id IN (
+//     SELECT u.user_id
+//     FROM public.users AS u
+//     WHERE u.name IS NOT NULL
+// )
+u.USER_ID.In(sq.
+    Select(u.USER_ID).
+    From(u).
+    Where(u.Name.IsNotNull()),
+)
+</code></pre>
+
+  <div>
+    <h3 class="dib">
+      <a id="tuple-in" href="#tuple-in" class="sakura-gray no-underline pilcrow">
+        Tuple IN (Row Value Expressions)
+      </a>
+    </h3>
+    &nbsp;&nbsp;<a href="#contents">contents</a>
+  </div>
+  <pre><code class="language-go">u := tables.USERS().As("u")
+
+// (u.user_id, u.name) IN ((1, "tom"), (2, "dick"), (3, "harry"))
+sq.RowValue{u.USER_ID, u.NAME}.In{sq.RowValues{
+    sq.RowValue{1, "tom"},
+    sq.RowValue{2, "dick"},
+    sq.RowValue{3, "harry"},
+}}
+
+// (u.user_id, u.name, u.email) IN (
+//     SELECT u.user_id, u.name, u.email
+//     FROM public.users AS u
+//     WHERE u.name IS NOT NULL
+// )
+sq.RowValue{u.USER_ID, u.NAME, u.EMAIL}.In(sq.
+    Select(u.USER_ID, u.NAME, u.EMAIL).
+    From(u).
+    Where(u.NAME.IsNotNull()),
+)
+</code></pre>
+  <div class="flex justify-between">
+    <div><a href="/sq/sql-expressions/order-by.html">&lt; Prev: ORDER BY</a></div>
+    <div><a href="/sq#sql-expressions">Up: SQL Expressions</a></div>
+    <div><a href="/sq/sql-expressions/union.html">Next: UNION, INTERSECT, EXCEPT &gt;</a></div>
+  </div>
+  <script src="/prismjs/prism.js"></script>
+</body>
+</html>
